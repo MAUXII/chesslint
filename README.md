@@ -1,6 +1,8 @@
 # Lance
 
-Um tabuleiro de xadrez de uma tela. A primeira visita abre em Configurar: cor, modo, ajuda, força, desenho do tabuleiro e desenho das peças, cada um com uma frase do que faz. Jogo é a partida e o caderno. A fonte é Geist.
+Um tabuleiro de xadrez de uma tela. A primeira visita abre em Configurar: cor, modo, ajuda, força, casas e peças, cada um com uma frase do que faz. Jogo é a partida e o caderno. A fonte é Geist.
+
+As peças são conjuntos publicados: Chessnut (Apache 2.0, Alexis Luengas), Fantasy e Celtic (MIT, Maurizio Monge). A nota está em `public/pieces/NOTICE.md`. Nova partida recomeça a que está na tela.
 
 A especificação está em [specification.md](specification.md).
 

@@ -80,7 +80,7 @@ export function defaultSession(): Session {
     strength: "clube",
     review: true,
     boardTheme: "pedra",
-    pieceStyle: "classico",
+    pieceStyle: "nitido",
     tab: "configurar",
     archive: [],
   }

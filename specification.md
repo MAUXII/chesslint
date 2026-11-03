@@ -27,7 +27,7 @@ Configurar explica, uma frase por escolha:
 - Assistência: Livre, Melhor ou Humano. A frase debaixo do botão diz o que a escolha faz.
 - Força do adversário, só na partida: iniciante, clube, forte.
 - Tabuleiro: pedra, madeira, verde ou tinta.
-- Peças: clássico, cheio ou traço.
+- Peças: nítido, Staunton ou celta.
 - Uma FEN, e as partidas anteriores.
 
 Jogo é a partida em si: o que você está fazendo agora, a avaliação, os lances, desfazer, nova partida, copiar o PGN e o caderno. No celular a coluna fica abaixo do tabuleiro. As abas ficam no topo, nas duas larguras.
@@ -87,7 +87,11 @@ Coincidência. Cada lance seu, quando o motor já tinha uma sugestão para aquel
 
 Fundo `#151618`. Superfície `#1e1e20`. Texto branco, texto secundário `#888888`, fio `rgba(255, 255, 255, 0.08)`.
 
-O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde e tinta trocam só as casas. Peças SVG próprias, em duas tintas, creme e quase preto. Clássico leva um fio da cor oposta. Cheio é a mesma silhueta, só a massa. Traço é o contorno, com um halo da cor oposta para ler nas duas casas. Casas sem raio. Moldura do tabuleiro, botões e campos com raio de 6px.
+O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde e tinta trocam só as casas. Casas sem raio. Moldura do tabuleiro, botões e campos com raio de 6px.
+
+As peças são três conjuntos publicados, no estado em que foram desenhados. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0: o cavalo de perfil, a coroa e a torre com ameias, na linha do que se lê no Chess.com e no Chess in the Park, do Discord. Staunton é o Fantasy, e Celta é o Celtic, os dois de Maurizio Monge, MIT, na linha do Lichess. A nota está em `public/pieces/NOTICE.md`.
+
+No fundo da página, três tubarões pequenos passam em dither Bayer, só um tom acima do preto. Se o sistema pedir menos movimento, eles ficam parados.
 
 A barra de avaliação é fina, à esquerda do tabuleiro, preenchida de baixo para cima do ponto de vista das brancas. Avaliação em peões com vírgula (`+0,4`). Mate em n lances quando a linha é de mate.
 
@@ -132,7 +136,7 @@ Puzzles e som. Não entram agora. O aprendizado desta versão é a nota no lance
 ## Critérios desta versão
 
 - A tela abre no tabuleiro, em desktop e em celular, com Configurar na frente até a pessoa ir para Jogo.
-- Dá para trocar o desenho das casas e o desenho das peças, e a troca fica neste navegador.
+- Dá para trocar o desenho das casas e o conjunto das peças, e a troca fica neste navegador. O cavalo de cada conjunto é um cavalo de perfil.
 - Dá para jogar de brancas ou de pretas, contra o motor, e estudar andando com os dois lados.
 - Livre, Melhor e Humano se comportam como acima.
 - Uma nota sobrevive a atualizar a página e aparece de novo ao reabrir a partida arquivada.

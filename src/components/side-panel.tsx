@@ -221,7 +221,7 @@ function Config({
         <p className="text-[13px] leading-5">{BOARD_THEMES[session.boardTheme].hint}</p>
       </Field>
 
-      <Field title="Peças" hint="O desenho, nas duas cores.">
+      <Field title="Peças" hint="Três desenhos publicados. O cavalo é um cavalo de perfil.">
         <div className="space-y-1.5">
           {(Object.keys(PIECE_STYLES) as PieceStyle[]).map((id) => {
             const style = PIECE_STYLES[id]

@@ -84,7 +84,7 @@ export function Board({
     <div
       ref={boardRef}
       className="relative aspect-square w-full touch-none select-none"
-      style={{ borderRadius: 6 }}
+      style={{ borderRadius: 6, boxShadow: "0 0 0 1px rgba(255,255,255,0.08)" }}
     >
       <div className="grid h-full w-full grid-cols-8 grid-rows-8 overflow-hidden" style={{ borderRadius: 6 }}>
         {ordered.map((square) => {
@@ -202,7 +202,7 @@ export function Board({
               if (target && target !== current.from) onDrop(current.from, target)
             }}
           >
-            <div className="h-full w-full p-[8%]">
+            <div className="h-full w-full p-[3%]">
               <PieceArt type={piece.type} color={piece.color} pieceStyle={pieceStyle} />
             </div>
             <span className="sr-only">
