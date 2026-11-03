@@ -249,7 +249,7 @@ export function LanceScreen() {
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-[900px] flex-col px-4 py-5 sm:py-8">
-      <header className="relative z-10 mb-4 flex flex-col gap-3 rounded-[6px] bg-background/90 px-2 py-1">
+      <header data-sea-block="" className="relative z-10 mb-4 flex flex-col gap-3 rounded-[6px] bg-background/90 px-2 py-1">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-[15px] font-medium tracking-tight">Lance</h1>
           <SectionTabs
@@ -277,7 +277,7 @@ export function LanceScreen() {
         </p>
       </header>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="mx-auto w-full max-w-[520px] lg:sticky lg:top-6 lg:mx-0 lg:max-w-[560px] lg:flex-1">
+        <div data-sea-block="" className="mx-auto w-full max-w-[520px] lg:sticky lg:top-6 lg:mx-0 lg:max-w-[560px] lg:flex-1">
           <div className="grid grid-cols-[8px_minmax(0,1fr)] items-stretch gap-2">
             <EvalBar ratio={ratioOf(shownEval.cp, shownEval.mate)} label={evalLabel(shownEval.cp, shownEval.mate)} />
             <Board

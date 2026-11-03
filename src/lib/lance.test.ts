@@ -7,9 +7,27 @@ import { resolveHuman, plyOf } from "@/lib/human"
 import { pickNatural, scoreNatural } from "@/lib/natural"
 import { formatCp, sanPt } from "@/lib/notation"
 import { reducer, initialState } from "@/lib/reducer"
+import { isOpenWater } from "@/lib/sea"
 import { fenBefore, loadSession } from "@/lib/session"
 
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+describe("água", () => {
+  function node(blocked: boolean) {
+    return {
+      closest(selector: string) {
+        if (blocked && selector.includes("data-sea-block")) return this
+        return null
+      },
+    }
+  }
+
+  it("abre onda no fundo e ignora tabuleiro e coluna", () => {
+    expect(isOpenWater(node(false) as unknown as EventTarget)).toBe(true)
+    expect(isOpenWater(node(true) as unknown as EventTarget)).toBe(false)
+    expect(isOpenWater(null)).toBe(false)
+  })
+})
 
 describe("livro", () => {
   it("aceita todas as linhas", () => {

@@ -119,7 +119,7 @@ O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde 
 
 As peças são três conjuntos publicados, no estado em que foram desenhados. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0: o cavalo de perfil, a coroa e a torre com ameias, na linha do que se lê no Chess.com e no Chess in the Park, do Discord. Staunton é o Fantasy, e Celta é o Celtic, os dois de Maurizio Monge, MIT, na linha do Lichess. A nota está em `public/pieces/NOTICE.md`.
 
-No fundo da página o nado é o do [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT. O desenho é outro: caractere pequeno, só branco, apagado, com dither Bayer e um tremor de meio pixel. Sem grade e sem cor. O cardume é curto. Um clique empurra a altura da água. A crista anda para fora, em dither branco, e some. Dois cliques se cruzam. Se o sistema pedir menos movimento, o oceano para num quadro só e o clique não abre anel.
+No fundo da página o nado é o do [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT. O desenho é outro: caractere pequeno, só branco, apagado, com dither Bayer e um tremor de meio pixel. Sem grade e sem cor. O cardume é curto. Um clique no fundo, fora do tabuleiro, da coluna e dos controles, empurra a altura da água. A crista anda para fora, em dither branco, e some. Dois cliques se cruzam. Clique em peça, casa ou na partida não mexe a água. Se o sistema pedir menos movimento, o oceano para num quadro só e o clique não abre anel.
 
 A barra de avaliação é fina, à esquerda do tabuleiro, preenchida de baixo para cima do ponto de vista das brancas. Avaliação em peões com vírgula (`+0,4`). Mate em n lances quando a linha é de mate.
 
@@ -173,8 +173,13 @@ Puzzles. Não entram agora. O aprendizado desta versão é a nota no lance e o n
 
 ## Ordem
 
-O que vem depois, nesta ordem.
+O que os outros sites tratam como produto pago, ou como estudo completo, entra no Lance feito aqui. A ordem é esta.
 
-1. Coluna. A coluna do jogo ainda explica demais e mostra tudo ao mesmo tempo. O próximo passo é três momentos, no jeito de um estudo: o que está acontecendo agora, a lista de lances, e a página do lance escolhido. O resto fica quieto até alguém pedir.
-2. Revisão da partida. Depois de jogar, a tela mostra onde a avaliação caiu e quão perto cada lance ficou do motor. Isso usa o Stockfish que já está aqui. É uma função feita no Lance, com as regras do chess.js. Não entra código, peça nem conta de outro site.
-3. Abertura e exercício. Um nome de abertura para a linha, e uma posição para resolver. Também feitos aqui. Puzzles de catálogo pronto ficam para quando houver um conjunto com licença clara.
+1. Coluna. Três momentos: o que está acontecendo, a lista, a página do lance. O resto fica quieto.
+2. Revisão. Onde a avaliação caiu, e o quanto cada lance chegou perto do motor. O Stockfish que já roda aqui faz a conta.
+3. Abertura. O nome da linha, a partir de um livro com licença, não de uma base fechada.
+4. Exercício. Uma posição para achar o lance. Um catálogo grande só entra com licença clara.
+5. Final. Posição de rei e peão, ou de torre, para treinar o que a tabela já decide.
+6. Explorar a própria partida. Os lances que você jogou, abertos de novo no tabuleiro. A base de milhões de partidas de outras pessoas fica de fora enquanto não houver uma fonte aberta.
+
+Ficam de fora, porque não são o tabuleiro: vídeo-aula, conta, anúncio, torneio, transmissão e um treinador que conversa. O Lance não copia o cliente de outro site.

@@ -114,7 +114,7 @@ export function SidePanel({
   onLoadFen: (fen: string) => string | null
 }) {
   return (
-    <aside className="flex w-full flex-col gap-3 rounded-[6px] border border-border bg-card p-3 lg:max-h-[calc(100dvh-7.5rem)] lg:w-[320px] lg:shrink-0 lg:overflow-y-auto">
+    <aside data-sea-block="" className="flex w-full flex-col gap-3 rounded-[6px] border border-border bg-card p-3 lg:max-h-[calc(100dvh-7.5rem)] lg:w-[320px] lg:shrink-0 lg:overflow-y-auto">
       {session.tab === "configurar" ? (
         <Config
           session={session}

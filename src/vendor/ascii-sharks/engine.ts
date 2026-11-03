@@ -1,5 +1,6 @@
 // Vendored from https://github.com/stackedlol/ascii-sharks (MIT, Copyright (c) 2026 drewdi).
 // A click stamps a faint ring. The board still receives the same click.
+import { isOpenWater } from "../../lib/sea";
 import { AsciiRenderer } from "./renderer";
 import { World, type SharkSpec } from "./world";
 
@@ -97,6 +98,7 @@ export class OceanEngine {
 
   private onPointerDown = (event: PointerEvent) => {
     if (this.disposed || this.reducedMotion.matches) return;
+    if (!isOpenWater(event.target)) return;
     const rect = this.canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
