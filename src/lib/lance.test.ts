@@ -12,6 +12,7 @@ import { pickNatural, scoreNatural } from "@/lib/natural"
 import { formatCp, sanPt } from "@/lib/notation"
 import { reducer, initialState } from "@/lib/reducer"
 import { accuracyOf, coachFor, evalSeries, explainLine, formatReviewCp, gradeLine, gradeOf, isLastBook, isSacrifice, winChance } from "@/lib/review"
+import { reviewPicture } from "@/lib/review-picture"
 import { isOpenWater } from "@/lib/sea"
 import { dropLine, fenBefore, loadSession } from "@/lib/session"
 
@@ -68,6 +69,53 @@ describe("seta", () => {
     ).toEqual(["threat"])
     expect(matchesJob(1, 2)).toBe(false)
     expect(matchesJob(2, 2)).toBe(true)
+  })
+})
+
+describe("desenho da revisão", () => {
+  const base = {
+    ply: 1,
+    matched: false,
+    drop: 40,
+    book: false,
+    best: "e2e4",
+    bestSan: "e4",
+    sacrifice: false,
+    swing: 0.08,
+    winBefore: 0.55,
+    gap: 0.02,
+  }
+
+  it("pinta as duas casas e só desenha a seta que explica", () => {
+    const book = reviewPicture(START, ["d3"], [{ ...base, book: true, matched: true, drop: 0, swing: 0, best: "d2d3", bestSan: "d3" }], 1)
+    expect(book?.squares.map((item) => item.square)).toEqual(["d2", "d3"])
+    expect(book?.arrows).toEqual([
+      { from: "c1", to: "h6", color: "#e6912c", label: "Caminho aberto" },
+    ])
+    expect(book?.sentence).toBe("Esse lance abre caminho para o bispo.")
+    expect(book?.badge?.grade).toBe("livro")
+
+    const soft = reviewPicture(START, ["a3"], [base], 1)
+    expect(soft?.arrows.map((arrow) => arrow.from + arrow.to)).toEqual(["e2e4"])
+    expect(soft?.arrows[0]?.color).toBe("#7fa650")
+    expect(soft?.squares.map((item) => item.square)).toEqual(["a2", "a3"])
+
+    const blunder = reviewPicture(
+      "4k3/8/8/8/8/8/8/3QK3 w - - 0 1",
+      ["Qh5"],
+      [{ ...base, drop: 250, swing: 0.4, bestSan: "e4" }],
+      1,
+    )
+    expect(blunder?.arrows).toEqual([{ from: "d1", to: "h5", color: "#d14343", label: "Lance jogado" }])
+
+    const loose = reviewPicture(
+      "4k3/8/8/2p5/8/8/3P4/4K3 w - - 0 1",
+      ["d4"],
+      [{ ...base, drop: 120, swing: 0.15, best: "d2d3", bestSan: "d3" }],
+      1,
+    )
+    expect(loose?.arrows).toEqual([{ from: "c5", to: "d4", color: "#2f6fad", label: "Peça sem defesa" }])
+    expect(loose?.sentence).toBe("Esse lance deixa o peão sem defesa.")
   })
 })
 

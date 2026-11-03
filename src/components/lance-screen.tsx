@@ -23,7 +23,7 @@ import { parseFen, placements, replay, resultText, safeMove, squareOfKing, toPgn
 import { resolveHuman } from "@/lib/human"
 import { formatMoverScore, sanPt, uciParts } from "@/lib/notation"
 import { visibleArrows, type BoardArrow } from "@/lib/arrows"
-import { GRADE_COLOR, badgeGrade, gradeOf, type Grade } from "@/lib/review"
+import { reviewPicture } from "@/lib/review-picture"
 import { initialState, reducer, type Review } from "@/lib/reducer"
 import { bootSnd, playSnd, setSndMix } from "@/lib/snd"
 import {
@@ -209,7 +209,7 @@ export function LanceScreen() {
   }
   const human = session.assistance === "humano" && atLive ? resolveHuman(liveFen, matched) : null
   const focusPly = atLive ? session.sans.length : (state.viewPly ?? 0)
-  const reviewed = reviewOf(session.startFen, session.sans, session.marks, focusPly > 0 ? focusPly : null)
+  const reviewed = state.reviewing ? reviewPicture(session.startFen, session.sans, session.marks, focusPly) : null
   const boardKey = `${session.startFen}|${session.drillId ?? ""}`
   const [arrowKey, setArrowKey] = useState(boardKey)
   if (arrowKey !== boardKey) {
@@ -231,10 +231,9 @@ export function LanceScreen() {
     settings: session.arrowSettings,
     bestUci: hintUci,
     threatUci,
-    reviewArrows: (reviewed?.arrows ?? []).map((arrow, index) => ({
+    reviewArrows: (reviewed?.arrows ?? []).map((arrow) => ({
       ...arrow,
       kind: "review" as const,
-      label: index === 0 && reviewed && reviewed.arrows.length > 1 ? "Melhor lance" : "Lance jogado",
     })),
     userArrows,
   })
@@ -410,8 +409,8 @@ export function LanceScreen() {
               destinations={legals}
               checkSquare={shown.isCheck() ? squareOfKing(shown, shown.turn()) : null}
               arrows={arrows}
-              tintSquare={state.reviewing ? (reviewed?.from ?? null) : null}
-              badge={state.reviewing && session.arrowSettings.review ? (reviewed?.badge ?? null) : null}
+              reviewSquares={reviewed?.squares ?? []}
+              badge={state.reviewing ? (reviewed?.badge ?? null) : null}
               showLast={session.arrowSettings.lastMove}
               highlights={session.highlights}
               customColors={session.customColors}
@@ -595,33 +594,6 @@ export function LanceScreen() {
       </Dialog>
     </main>
   )
-}
-
-function reviewOf(
-  startFen: string,
-  sans: string[],
-  marks: { ply: number; matched: boolean; drop: number | null; book: boolean; best: string | null; bestSan: string | null; sacrifice: boolean }[],
-  ply: number | null,
-): { arrows: { from: string; to: string; color: string }[]; from: string; badge: { square: string; grade: Grade } | null } | null {
-  if (ply == null || ply < 1) return null
-  const san = sans[ply - 1]
-  if (!san) return null
-  const move = safeMove(replay(startFen, sans.slice(0, ply - 1)), san)
-  if (!move) return null
-  const mark = marks.find((item) => item.ply === ply)
-  const grade = mark ? gradeOf(mark) : null
-  const color = grade ? GRADE_COLOR[grade] : "#d9d3c7"
-  const arrows: { from: string; to: string; color: string }[] = [{ from: move.from, to: move.to, color }]
-  const bad = grade === "imprecisao" || grade === "erro" || grade === "vacilo" || grade === "omissao"
-  if (bad && mark?.best && mark.best !== move.lan && mark.best.length >= 4) {
-    arrows.unshift({ from: mark.best.slice(0, 2), to: mark.best.slice(2, 4), color: "#7fa650" })
-  }
-  const shown = badgeGrade(grade)
-  return {
-    arrows,
-    from: move.from,
-    badge: shown ? { square: move.to, grade: shown } : null,
-  }
 }
 
 function reviewCopy(review: Review): string {

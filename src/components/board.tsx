@@ -2,12 +2,13 @@
 
 import { useRef, useState } from "react"
 
+import { GradeIcon } from "@/components/grade-icon"
 import { PieceArt } from "@/components/pieces"
 import { arrowShape, knightCorner } from "@/lib/arrow"
 import type { BoardArrow } from "@/lib/arrows"
 import type { Placement } from "@/lib/game"
 import { BOARD_THEMES, type BoardTheme, type CustomColors, type Highlights, type PieceStyle } from "@/lib/look"
-import { GRADE_COLOR, gradeGlyph, type Grade } from "@/lib/review"
+import { GRADE_COLOR, type Grade } from "@/lib/review"
 import type { Color } from "@/lib/session"
 
 const PIECE_NAME: Record<string, string> = {
@@ -37,7 +38,7 @@ export function Board({
   destinations,
   checkSquare,
   arrows,
-  tintSquare,
+  reviewSquares,
   badge,
   showLast,
   highlights,
@@ -58,7 +59,7 @@ export function Board({
   destinations: { to: string; capture: boolean }[]
   checkSquare: string | null
   arrows: BoardArrow[]
-  tintSquare: string | null
+  reviewSquares: { square: string; color: string }[]
   badge: { square: string; grade: Grade } | null
   showLast: boolean
   highlights: Highlights
@@ -134,12 +135,14 @@ export function Board({
               className="relative"
               style={{ background: tone }}
             >
-              {showLast && marked && (
-                <span className="absolute inset-0" style={{ background: highlights.last, opacity: 0.38 }} />
+              {showLast && marked && reviewSquares.length === 0 && (
+                <span className="absolute inset-0" style={{ background: highlights.last, opacity: 0.55 }} />
               )}
-              {tintSquare === square && (
-                <span className="absolute inset-0" style={{ background: "rgba(214, 176, 122, 0.55)" }} />
-              )}
+              {reviewSquares
+                .filter((item) => item.square === square)
+                .map((item) => (
+                  <span key={item.color} className="absolute inset-0" style={{ background: item.color, opacity: 0.78 }} />
+                ))}
               {selected === square && (
                 <span className="absolute inset-0" style={{ background: highlights.selected, opacity: 0.34 }} />
               )}
@@ -273,26 +276,16 @@ function MoveBadge({ square, grade, orientation }: { square: string; grade: Grad
   const color = GRADE_COLOR[grade]
   return (
     <span
-      className="pointer-events-none absolute z-30 flex size-4 items-center justify-center rounded-full text-[8px] font-medium text-white"
+      className="pointer-events-none absolute z-40 flex size-7 -translate-x-1/2 -translate-y-[30%] items-center justify-center rounded-full text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
       style={{
-        left: `${(at.x + 0.62) * 12.5}%`,
+        left: `${(at.x + 1) * 12.5}%`,
         top: `${at.y * 12.5}%`,
         background: color,
       }}
+      aria-label={grade}
     >
-      {grade === "livro" ? <BookGlyph /> : gradeGlyph(grade)}
+      <GradeIcon grade={grade} />
     </span>
-  )
-}
-
-function BookGlyph() {
-  return (
-    <svg viewBox="0 0 12 12" className="size-2.5" aria-hidden>
-      <path
-        d="M1.6 2.2h3.4c.5 0 1 .2 1.2.7.2-.5.7-.7 1.2-.7h3V9.6H7.4c-.4 0-.8.2-1.2.5-.4-.3-.8-.5-1.2-.5H1.6V2.2z"
-        fill="currentColor"
-      />
-    </svg>
   )
 }
 

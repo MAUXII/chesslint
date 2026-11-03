@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react"
 
+import { GradeIcon } from "@/components/grade-icon"
 import { PieceArt } from "@/components/pieces"
 import { SpringSwitch } from "@/components/spring-switch"
 import { Button } from "@/components/ui/button"
@@ -20,9 +21,7 @@ import {
   badgeGrade,
   evalSeries,
   formatReviewCp,
-  gradeGlyph,
   accuracyOf,
-  coachFor,
   criticalPlies,
   gradeLine,
   gradeOf,
@@ -31,6 +30,7 @@ import {
   moverColor,
   type Grade,
 } from "@/lib/review"
+import { reviewPicture } from "@/lib/review-picture"
 import {
   TAGS,
   dropLine,
@@ -1427,9 +1427,8 @@ function ReviewCard({
       : playerMove
         ? `${sanPt(san)} ainda sem classificação`
         : `${sanPt(san)} é lance do motor`
-  const explanation = grade
-    ? coachFor(session.startFen, session.sans, focus, grade, mark?.bestSan ?? null, Boolean(mark?.matched), lastBook)
-    : null
+  const picture = reviewPicture(session.startFen, session.sans, session.marks, focus)
+  const explanation = picture?.sentence ?? null
   const retry =
     Boolean(mark?.best && mark.bestSan) &&
     (grade === "imprecisao" || grade === "erro" || grade === "vacilo" || grade === "omissao")
@@ -1446,12 +1445,22 @@ function ReviewCard({
     <section className="space-y-2" aria-label="Revisão do lance">
       <div className="rounded-[6px] border border-border px-3 py-2">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-[13px] leading-5">{line}</p>
+          <div className="flex items-start gap-2">
+            {grade && (
+              <span
+                className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold text-white"
+                style={{ background: GRADE_COLOR[grade] }}
+              >
+                <GradeIcon grade={grade} />
+              </span>
+            )}
+            <p className="text-[13px] leading-5">{line}</p>
+          </div>
           {chip && (
             <span className="shrink-0 rounded-[4px] bg-white/10 px-1.5 py-0.5 text-[12px] tabular-nums">{chip}</span>
           )}
         </div>
-        {explainOn && explanation && <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{explanation}</p>}
+        {explanation && <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{explanation}</p>}
       </div>
       <div className="flex gap-1.5">
         <Button type="button" variant="outline" className="flex-1" onClick={onExplain} disabled={!explanation} aria-pressed={explainOn}>
@@ -1625,23 +1634,12 @@ function ReviewSummary({
 function GradeMark({ grade }: { grade: Grade }) {
   return (
     <span
-      className="inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[8px] leading-none font-medium text-white"
+      className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] leading-none font-semibold text-white"
       style={{ background: GRADE_COLOR[grade] }}
       aria-hidden
     >
-      {grade === "livro" ? <BookMark /> : gradeGlyph(grade)}
+      <GradeIcon grade={grade} />
     </span>
-  )
-}
-
-function BookMark() {
-  return (
-    <svg viewBox="0 0 12 12" className="size-2.5" aria-hidden>
-      <path
-        d="M1.6 2.2h3.4c.5 0 1 .2 1.2.7.2-.5.7-.7 1.2-.7h3V9.6H7.4c-.4 0-.8.2-1.2.5-.4-.3-.8-.5-1.2-.5H1.6V2.2z"
-        fill="currentColor"
-      />
-    </svg>
   )
 }
 
