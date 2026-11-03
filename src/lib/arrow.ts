@@ -50,46 +50,24 @@ function bent(from: Pt, corner: Pt, to: Pt): string {
   const u2 = unit(to.x - corner.x, to.y - corner.y)
   const p1 = perp(u1)
   const p2 = perp(u2)
-  const radius = 0.32
   const start = add(from, u1, 0.18)
-  const before = add(corner, u1, -radius)
-  const after = add(corner, u2, radius)
   const tip = add(to, u2, -0.05)
-  const leg = Math.hypot(tip.x - after.x, tip.y - after.y) || 1
+  const leg = Math.hypot(tip.x - corner.x, tip.y - corner.y) || 1
   const headLen = Math.min(HEAD_LEN, leg * 0.46)
   const base = add(tip, u2, -headLen)
-  const controlWide = intersect(shift(before, p1, BODY), u1, shift(after, p2, BODY), u2)
-  const controlNarrow = intersect(shift(before, p1, -BODY), u1, shift(after, p2, -BODY), u2)
-  const wide = [
+  const outer = intersect(shift(start, p1, BODY), u1, shift(base, p2, BODY), u2)
+  const inner = intersect(shift(start, p1, -BODY), u1, shift(base, p2, -BODY), u2)
+  return closed([
     shift(start, p1, BODY),
-    shift(before, p1, BODY),
-    controlWide,
-    shift(after, p2, BODY),
+    outer,
     shift(base, p2, BODY),
-  ]
-  const narrow = [
+    shift(base, p2, HEAD),
+    tip,
+    shift(base, p2, -HEAD),
     shift(base, p2, -BODY),
-    shift(after, p2, -BODY),
-    controlNarrow,
-    shift(before, p1, -BODY),
+    inner,
     shift(start, p1, -BODY),
-  ]
-  const head = [shift(base, p2, HEAD), tip, shift(base, p2, -HEAD)]
-  return contour(wide, head, narrow)
-}
-
-function contour(wide: Pt[], head: Pt[], narrow: Pt[]): string {
-  const parts = [`M ${n(wide[0].x)} ${n(wide[0].y)}`]
-  parts.push(`L ${n(wide[1].x)} ${n(wide[1].y)}`)
-  parts.push(`Q ${n(wide[2].x)} ${n(wide[2].y)} ${n(wide[3].x)} ${n(wide[3].y)}`)
-  parts.push(`L ${n(wide[4].x)} ${n(wide[4].y)}`)
-  for (const point of head) parts.push(`L ${n(point.x)} ${n(point.y)}`)
-  parts.push(`L ${n(narrow[0].x)} ${n(narrow[0].y)}`)
-  parts.push(`L ${n(narrow[1].x)} ${n(narrow[1].y)}`)
-  parts.push(`Q ${n(narrow[2].x)} ${n(narrow[2].y)} ${n(narrow[3].x)} ${n(narrow[3].y)}`)
-  parts.push(`L ${n(narrow[4].x)} ${n(narrow[4].y)}`)
-  parts.push("Z")
-  return parts.join(" ")
+  ])
 }
 
 function closed(points: Pt[]): string {

@@ -81,7 +81,7 @@ Enquanto o WASM carrega, a coluna diz: "O motor está acordando." Se o arquivo n
 
 Livre. Nenhuma seta sozinha. Depois do seu lance, uma linha: o que você jogou e o que o motor preferia, em peões, quando o lance jogado estava entre as candidatas. Dá para calar essa linha. A contagem de coincidência continua. Se você pedir, o melhor lance aparece.
 
-Melhor. A seta verde só aparece quando você pede, pelo botão Ver melhor lance. Numa torre, bispo, dama, rei ou peão ela é um caminho preenchido, do centro da casa até a outra. No cavalo ela faz o L: primeiro a perna mais longa, com o canto arredondado, e a ponta no mesmo contorno, no último trecho. A avaliação em peões e três lances da linha vêm junto, em notação portuguesa (C, B, T, D, R), quando a dica está pedida.
+Melhor. A seta verde só aparece quando você pede, pelo botão Ver melhor lance. Numa torre, bispo, dama, rei ou peão ela é um caminho preenchido, do centro da casa até a outra. No cavalo ela faz o L: primeiro a perna mais longa, com o canto reto, e a ponta no mesmo contorno, no último trecho. A avaliação em peões e três lances da linha vêm junto, em notação portuguesa (C, B, T, D, R), quando a dica está pedida.
 
 Humano. A mesma seta, em azul, no lance natural, e só quando pedida. No estudo, a seta da análise continua verde.
 
