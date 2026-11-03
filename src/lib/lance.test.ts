@@ -129,6 +129,31 @@ describe("partida", () => {
     expect(state.session.tab).toBe("jogo")
   })
 
+  it("a primeira visita guarda as respostas e não apaga os lances", () => {
+    const loaded = loadSession(JSON.stringify({ startFen: START, sans: ["e4"] }))
+    expect(loaded?.welcomed).toBe(false)
+    expect(loaded?.sound).toBe(true)
+    let state = reducer(initialState, { type: "user-move", san: "e4" })
+    state = reducer(state, {
+      type: "welcome-done",
+      patch: {
+        player: "b",
+        mode: "estudo",
+        assistance: "melhor",
+        strength: "forte",
+        boardTheme: "tinta",
+        pieceStyle: "celta",
+        sound: false,
+      },
+    })
+    expect(state.session.sans).toEqual(["e4"])
+    expect(state.session.welcomed).toBe(true)
+    expect(state.session.tab).toBe("jogo")
+    expect(state.session.player).toBe("b")
+    expect(state.session.sound).toBe(false)
+    expect(state.session.pieceStyle).toBe("celta")
+  })
+
   it("guarda a nota na FEN do lance", () => {
     let state = reducer(initialState, { type: "user-move", san: "e4" })
     const fen = fenBefore(state.session.startFen, state.session.sans, 1)

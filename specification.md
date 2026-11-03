@@ -1,8 +1,22 @@
 # Lance
 
+Este arquivo é o documento do projeto até agora. O README só diz como rodar e aponta para cá.
+
 Lance é um tabuleiro de xadrez de uma tela. Você escolhe a cor, joga uma partida contra o motor ou estuda a posição dos dois lados, e pode pedir o melhor lance ou um lance natural. O que ficar de aprendizado vai para um caderno, no próprio lance.
 
 O nome é curto de propósito. Lance é a jogada. Alternativas que não mudam o produto: Casa, Ply.
+
+## De onde vem
+
+Três repositórios foram perguntados. Só um entra como código nosso. O motor entra por um build WASM. O terceiro não entra.
+
+- [chess.js](https://github.com/jhlywa/chess.js), de jhlywa. É dependência direta, pacote `chess.js`. Faz as regras, a FEN, o PGN e o lance legal. Um lance ilegal lança erro; o Lance captura isso. O PGN sai em inglês. A notação na tela é portuguesa (C, B, T, D, R), convertida em cima do SAN.
+- [Stockfish](https://github.com/mcostalba/Stockfish), de mcostalba e o projeto oficial. O Lance não compila esse C++. O pacote npm `stockfish` é o [stockfish.js](https://github.com/nmrugg/stockfish.js), GPL-3.0: um build WASM de uma thread do Stockfish 19. A instalação copia esse arquivo para `public/stockfish`. O app fala com o worker só por UCI. Não usa `SharedArrayBuffer`.
+- [code100x/chess](https://github.com/code100x/chess). Não entra. É uma plataforma de partidas online, com React, Node, websockets, Redis e Postgres. O Lance não importa arquivo nenhum de lá. Os dois projetos usam chess.js, cada um do seu lado.
+
+O desenho das peças vem de outros repositórios, com licença, listados em `public/pieces/NOTICE.md`: Chessnut (Alexis Luengas, Apache 2.0), Fantasy e Celtic (Maurizio Monge, MIT, peças públicas do Lichess). Chess.com, o conjunto padrão do Lichess (Cburnett, GPL) e os modelos do Discord Chess in the Park não foram copiados.
+
+O som é o [snd.dev](https://snd.dev), pacote `snd-lib`, MIT, só o kit SND01 (seno). O painel da primeira visita e as abas seguem o gesto do Morphing Modal e das abas com mola do [beUI](https://beui.dev), refeitos aqui com `motion`, no tom do Lance. Não há instalação do registro inteiro do beUI.
 
 ## Referências
 
@@ -16,9 +30,21 @@ A coluna é a do Facultas, só o bastante mais larga para o tabuleiro e o cadern
 
 ## Uma tela
 
-A primeira vista é o tabuleiro, com duas abas no topo: Jogo e Configurar. Quem ainda não escolheu a aba Jogo cai em Configurar, para ver o que cada coisa faz antes de a partida responder.
+A primeira visita não é a coluna inteira. É um painel estreito, no máximo 380px, uma pergunta de cada vez, com o tabuleiro atrás. A altura do painel acompanha a pergunta numa mola, e o texto troca com um desfoque curto. Se o sistema pedir menos movimento, a altura troca na hora.
 
-O tabuleiro continua visível. A seta da ajuda, se estiver ligada, já aparece. O adversário não joga enquanto a aba for Configurar.
+As perguntas, nesta ordem:
+
+- Cor: brancas ou pretas.
+- Partida ou estudo.
+- Ajuda: Livre, Melhor ou Humano, com a frase do modo escolhido.
+- Força do adversário, só se for partida.
+- Casas: pedra, madeira, verde ou tinta.
+- Peças: nítido, Staunton ou celta.
+- Som: ligado ou mudo.
+
+O último botão é "Ir para o jogo". A escolha fica neste navegador e o painel não volta. Não há conta nem login. Configurar continua no topo para mudar qualquer coisa depois.
+
+O tabuleiro continua visível. O adversário não joga enquanto o painel estiver aberto, nem enquanto a aba for Configurar.
 
 Configurar explica, uma frase por escolha:
 
@@ -28,6 +54,7 @@ Configurar explica, uma frase por escolha:
 - Força do adversário, só na partida: iniciante, clube, forte.
 - Tabuleiro: pedra, madeira, verde ou tinta.
 - Peças: nítido, Staunton ou celta.
+- Som: ligado ou mudo. O mesmo interruptor vale para a linha de revisão, no modo livre.
 - Uma FEN, e as partidas anteriores.
 
 Jogo é a partida em si: o que você está fazendo agora, a avaliação, os lances, desfazer, nova partida, copiar o PGN e o caderno. No celular a coluna fica abaixo do tabuleiro. As abas ficam no topo, nas duas larguras.
@@ -91,7 +118,7 @@ O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde 
 
 As peças são três conjuntos publicados, no estado em que foram desenhados. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0: o cavalo de perfil, a coroa e a torre com ameias, na linha do que se lê no Chess.com e no Chess in the Park, do Discord. Staunton é o Fantasy, e Celta é o Celtic, os dois de Maurizio Monge, MIT, na linha do Lichess. A nota está em `public/pieces/NOTICE.md`.
 
-No fundo da página, três tubarões pequenos passam em dither Bayer, só um tom acima do preto. Se o sistema pedir menos movimento, eles ficam parados.
+No fundo da página, vários tubarões-martelo vistos de cima atravessam a tela. A cabeça é larga, o corpo afunila, a cauda é bifurcada, e cada um entra com tamanho e rumo diferentes. O corpo é pixel de dither Bayer, um tom acima do fundo `#151618`, não um desenho chapado. Se o sistema pedir menos movimento, eles ficam parados. O som continua no interruptor.
 
 A barra de avaliação é fina, à esquerda do tabuleiro, preenchida de baixo para cima do ponto de vista das brancas. Avaliação em peões com vírgula (`+0,4`). Mate em n lances quando a linha é de mate.
 
@@ -105,11 +132,11 @@ Tipografia: Geist.
 
 Tudo fica no `localStorage` deste navegador, na chave `lance.session.v1`.
 
-A sessão guarda a FEN inicial, os lances, as notas, a cor, o modo, a assistência, a força, se a revisão está calada, o desenho do tabuleiro, o desenho das peças, a aba aberta, e a contagem de coincidência. Atualizar a página continua a mesma partida. Uma sessão antiga, sem aba guardada, abre em Configurar.
+A sessão guarda a FEN inicial, os lances, as notas, a cor, o modo, a assistência, a força, se a revisão está calada, o desenho do tabuleiro, o desenho das peças, a aba aberta, se o som está ligado, se a primeira visita já foi respondida, e a contagem de coincidência. Atualizar a página continua a mesma partida. Uma sessão antiga, sem essas marcas, abre as perguntas uma vez e deixa o som ligado.
 
 Nova partida arquiva a anterior, se houve lance ou nota, e fica com as doze últimas. A coluna lista essas partidas e reabre o PGN e as notas.
 
-Não há conta, servidor de jogo, nem som.
+Não há conta nem servidor de jogo. O som é local, no navegador, e só toca depois do primeiro gesto.
 
 ## Motor
 
@@ -117,7 +144,7 @@ Stockfish 19, build lite de uma thread, em WASM, dentro de um worker servido de 
 
 Os arquivos do motor vêm do pacote `stockfish` (GPL-3.0) e são copiados para `public/stockfish` na instalação. O restante do app fala com ele só por UCI.
 
-As regras, o PGN e a FEN ficam com `chess.js`.
+As regras, o PGN e a FEN ficam com `chess.js`. Ver "De onde vem".
 
 ## Fora desta versão
 
@@ -131,11 +158,11 @@ Gravação em tempo real. A mesma entrada contínua pode gravar a partida enquan
 
 Nuvem. O caderno pode sair deste navegador. Esta versão não sincroniza.
 
-Puzzles e som. Não entram agora. O aprendizado desta versão é a nota no lance e o número de coincidência.
+Puzzles. Não entram agora. O aprendizado desta versão é a nota no lance e o número de coincidência. O som desta versão é o kit de seno: toque na escolha, botão no lance, interruptor ao ligar e calar, um festejo no fim da partida, e um aviso quando a FEN não abre.
 
 ## Critérios desta versão
 
-- A tela abre no tabuleiro, em desktop e em celular, com Configurar na frente até a pessoa ir para Jogo.
+- A primeira visita faz as perguntas num painel estreito, com o tabuleiro atrás, e não repete. Configurar continua disponível.
 - Dá para trocar o desenho das casas e o conjunto das peças, e a troca fica neste navegador. O cavalo de cada conjunto é um cavalo de perfil.
 - Dá para jogar de brancas ou de pretas, contra o motor, e estudar andando com os dois lados.
 - Livre, Melhor e Humano se comportam como acima.

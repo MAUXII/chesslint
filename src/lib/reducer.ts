@@ -56,6 +56,11 @@ export type Action =
   | { type: "set-board"; board: BoardTheme }
   | { type: "set-pieces"; pieces: PieceStyle }
   | { type: "set-tab"; tab: Tab }
+  | { type: "set-sound"; sound: boolean }
+  | {
+      type: "welcome-done"
+      patch: Pick<Session, "player" | "mode" | "assistance" | "strength" | "boardTheme" | "pieceStyle" | "sound">
+    }
   | { type: "view-ply"; ply: number }
   | { type: "load-fen"; fen: string }
   | { type: "save-note"; note: Note }
@@ -114,6 +119,13 @@ export function reducer(state: State, action: Action): State {
       return { ...state, session: { ...state.session, pieceStyle: action.pieces } }
     case "set-tab":
       return { ...state, session: { ...state.session, tab: action.tab } }
+    case "set-sound":
+      return { ...state, session: { ...state.session, sound: action.sound } }
+    case "welcome-done":
+      return {
+        ...state,
+        session: { ...state.session, ...action.patch, welcomed: true, tab: "jogo" },
+      }
     case "view-ply":
       if (action.ply >= state.session.sans.length) return { ...state, viewPly: null }
       return { ...state, viewPly: action.ply }

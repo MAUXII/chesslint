@@ -48,6 +48,8 @@ export type Session = {
   boardTheme: BoardTheme
   pieceStyle: PieceStyle
   tab: Tab
+  sound: boolean
+  welcomed: boolean
   archive: ArchivedGame[]
 }
 
@@ -82,6 +84,8 @@ export function defaultSession(): Session {
     boardTheme: "pedra",
     pieceStyle: "nitido",
     tab: "configurar",
+    sound: true,
+    welcomed: false,
     archive: [],
   }
 }
@@ -113,6 +117,8 @@ export function loadSession(raw: string | null): Session | null {
       boardTheme: isBoardTheme(data.boardTheme) ? data.boardTheme : base.boardTheme,
       pieceStyle: isPieceStyle(data.pieceStyle) ? data.pieceStyle : base.pieceStyle,
       tab: data.tab === "jogo" ? "jogo" : "configurar",
+      sound: data.sound !== false,
+      welcomed: data.welcomed === true,
     }
   } catch {
     return null

@@ -5,9 +5,10 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { Board } from "@/components/board"
 import { EvalBar } from "@/components/eval-bar"
 import { PieceArt } from "@/components/pieces"
+import { SectionTabs } from "@/components/section-tabs"
 import { SidePanel } from "@/components/side-panel"
+import { Welcome } from "@/components/welcome"
 import { Button } from "@/components/ui/button"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import { parseFen, placements, replay, resultText, safeMove, squareOfKing, toPgn
 import { resolveHuman } from "@/lib/human"
 import { formatMoverScore, sanPt, uciParts } from "@/lib/notation"
 import { initialState, reducer, type Review } from "@/lib/reducer"
+import { bootSnd, playSnd } from "@/lib/snd"
 import {
   analysisMatches,
   defaultSession,
@@ -45,6 +47,7 @@ export function LanceScreen() {
   const [selected, setSelected] = useState<string | null>(null)
   const [pending, setPending] = useState<{ from: string; to: string } | null>(null)
   const [showEngine, setShowEngine] = useState(false)
+  const resultSeen = useRef<{ primed: boolean; last: string | null }>({ primed: false, last: null })
 
   const session = state.session
   const live = useMemo(() => replay(session.startFen, session.sans), [session.startFen, session.sans])
@@ -75,6 +78,10 @@ export function LanceScreen() {
   useEffect(() => {
     const saved = loadSession(window.localStorage.getItem(STORAGE_KEY))
     dispatch({ type: "hydrate", session: saved ?? defaultSession() })
+  }, [])
+
+  useEffect(() => {
+    bootSnd()
   }, [])
 
   useEffect(() => {
@@ -112,7 +119,7 @@ export function LanceScreen() {
       return
     }
     let cancelled = false
-    if (session.tab === "configurar") {
+    if (session.tab === "configurar" || !session.welcomed) {
       dispatch({ type: "thinking", thinking: false })
       if (playerTurn) {
         engine.analyze(liveFen).then((analysis) => {
@@ -143,6 +150,7 @@ export function LanceScreen() {
     liveFen,
     session.strength,
     session.tab,
+    session.welcomed,
   ])
 
   const history = shown.history({ verbose: true })
@@ -150,7 +158,9 @@ export function LanceScreen() {
   const counts = tally(session.marks)
   const result = resultText(live)
   const onConfig = session.tab === "configurar"
+  const welcoming = state.hydrated && !session.welcomed
   const canPlay =
+    session.welcomed &&
     !onConfig &&
     atLive &&
     !gameOver &&
@@ -194,6 +204,19 @@ export function LanceScreen() {
       : null
   const engineSan = matched?.best ? sanOf(liveFen, matched.best) : null
 
+  useEffect(() => {
+    if (!state.hydrated) return
+    const current = atLive && result ? result : null
+    if (!resultSeen.current.primed) {
+      resultSeen.current = { primed: true, last: current }
+      return
+    }
+    if (current && current !== resultSeen.current.last && session.sound && session.welcomed) {
+      playSnd("celebration", true)
+    }
+    resultSeen.current = { primed: true, last: current }
+  }, [state.hydrated, atLive, result, session.sound, session.welcomed])
+
   function tryMove(from: string, to: string) {
     const hits = shown.moves({ square: from as never, verbose: true }).filter((move) => move.to === to)
     if (hits.length === 0) return
@@ -203,6 +226,7 @@ export function LanceScreen() {
       return
     }
     dispatch({ type: "user-move", san: hits[0].san })
+    playSnd("button", session.sound)
     setSelected(null)
   }
 
@@ -228,25 +252,14 @@ export function LanceScreen() {
       <header className="mb-4 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-[15px] font-medium tracking-tight">Lance</h1>
-          <ToggleGroup
-            value={[session.tab]}
-            onValueChange={(values) => {
-              const picked = values.find((item) => item !== session.tab) ?? values[0]
-              if (picked === "jogo" || picked === "configurar") dispatch({ type: "set-tab", tab: picked })
+          <SectionTabs
+            value={session.tab}
+            onChange={(tab) => {
+              if (tab === session.tab) return
+              playSnd("select", session.sound)
+              dispatch({ type: "set-tab", tab })
             }}
-            variant="outline"
-            size="sm"
-            spacing={1}
-            className="w-[220px]"
-            aria-label="Seção"
-          >
-            <ToggleGroupItem value="jogo" className="flex-1 rounded-[6px]">
-              Jogo
-            </ToggleGroupItem>
-            <ToggleGroupItem value="configurar" className="flex-1 rounded-[6px]">
-              Configurar
-            </ToggleGroupItem>
-          </ToggleGroup>
+          />
         </div>
         <p className="text-[13px] text-muted-foreground">
           {headerStatus({
@@ -259,6 +272,7 @@ export function LanceScreen() {
             replyFailed: state.replyFailed,
             turn: live.turn(),
             tab: session.tab,
+            welcomed: session.welcomed,
           })}
         </p>
       </header>
@@ -285,6 +299,7 @@ export function LanceScreen() {
             />
           </div>
         </div>
+        {!welcoming && (
         <SidePanel
           session={session}
           atLive={atLive}
@@ -302,14 +317,42 @@ export function LanceScreen() {
           }
           showEngine={showEngine}
           onToggleEngine={() => setShowEngine((value) => !value)}
-          onPlayer={(player) => dispatch({ type: "set-player", player })}
-          onMode={(mode) => dispatch({ type: "set-mode", mode })}
-          onAssistance={(assistance) => dispatch({ type: "set-assistance", assistance })}
-          onStrength={(strength) => dispatch({ type: "set-strength", strength })}
-          onReview={(reviewOn) => dispatch({ type: "set-review", review: reviewOn })}
-          onBoard={(board) => dispatch({ type: "set-board", board })}
-          onPieces={(pieces) => dispatch({ type: "set-pieces", pieces })}
-          onTab={(tab) => dispatch({ type: "set-tab", tab })}
+          onPlayer={(player) => {
+            playSnd("select", session.sound)
+            dispatch({ type: "set-player", player })
+          }}
+          onMode={(mode) => {
+            playSnd("select", session.sound)
+            dispatch({ type: "set-mode", mode })
+          }}
+          onAssistance={(assistance) => {
+            playSnd("select", session.sound)
+            dispatch({ type: "set-assistance", assistance })
+          }}
+          onStrength={(strength) => {
+            playSnd("select", session.sound)
+            dispatch({ type: "set-strength", strength })
+          }}
+          onReview={(reviewOn) => {
+            playSnd(reviewOn ? "toggleOn" : "toggleOff", session.sound)
+            dispatch({ type: "set-review", review: reviewOn })
+          }}
+          onBoard={(board) => {
+            playSnd("select", session.sound)
+            dispatch({ type: "set-board", board })
+          }}
+          onPieces={(pieces) => {
+            playSnd("select", session.sound)
+            dispatch({ type: "set-pieces", pieces })
+          }}
+          onSound={(sound) => {
+            playSnd(sound ? "toggleOn" : "toggleOff", session.sound || sound)
+            dispatch({ type: "set-sound", sound })
+          }}
+          onTab={(tab) => {
+            if (tab !== session.tab) playSnd("select", session.sound)
+            dispatch({ type: "set-tab", tab })
+          }}
           onUndo={() => dispatch({ type: "undo" })}
           onNew={() => dispatch({ type: "new-game" })}
           onCopy={() => {
@@ -330,11 +373,22 @@ export function LanceScreen() {
           onOpenArchive={(id) => dispatch({ type: "open-archive", id })}
           onLoadFen={(fen) => {
             const parsed = parseFen(fen)
-            if (!parsed) return "Essa FEN não abre."
+            if (!parsed) {
+              playSnd("caution", session.sound)
+              return "Essa FEN não abre."
+            }
+            playSnd("button", session.sound)
             dispatch({ type: "load-fen", fen: parsed })
             return null
           }}
         />
+        )}
+        {welcoming && (
+          <Welcome
+            session={session}
+            onDone={(patch) => dispatch({ type: "welcome-done", patch })}
+          />
+        )}
       </div>
       <Dialog open={pending != null} onOpenChange={(open) => { if (!open) setPending(null) }}>
         <DialogContent>
@@ -355,7 +409,10 @@ export function LanceScreen() {
                   const move = shown
                     .moves({ square: pending.from as never, verbose: true })
                     .find((item) => item.to === pending.to && item.promotion === piece.id)
-                  if (move) dispatch({ type: "user-move", san: move.san })
+                  if (move) {
+                    dispatch({ type: "user-move", san: move.san })
+                    playSnd("button", session.sound)
+                  }
                   setPending(null)
                 }}
               >
@@ -421,6 +478,7 @@ function headerStatus({
   replyFailed,
   turn,
   tab,
+  welcomed,
 }: {
   engineStatus: string
   thinking: boolean
@@ -431,7 +489,9 @@ function headerStatus({
   replyFailed: boolean
   turn: "w" | "b"
   tab: "jogo" | "configurar"
+  welcomed: boolean
 }): string {
+  if (!welcomed) return "Uma pergunta de cada vez. O adversário espera."
   if (tab === "configurar") return "Escolha como jogar. O adversário espera."
   if (engineStatus === "booting") return "O motor está acordando."
   if (engineStatus === "error") return "O motor não carregou."

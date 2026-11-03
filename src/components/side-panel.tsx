@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react"
 
 import { PieceArt } from "@/components/pieces"
+import { SpringSwitch } from "@/components/spring-switch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -68,6 +69,7 @@ export function SidePanel({
   onReview,
   onBoard,
   onPieces,
+  onSound,
   onTab,
   onUndo,
   onNew,
@@ -99,6 +101,7 @@ export function SidePanel({
   onReview: (review: boolean) => void
   onBoard: (board: BoardTheme) => void
   onPieces: (pieces: PieceStyle) => void
+  onSound: (sound: boolean) => void
   onTab: (tab: Tab) => void
   onUndo: () => void
   onNew: () => void
@@ -123,6 +126,7 @@ export function SidePanel({
           onReview={onReview}
           onBoard={onBoard}
           onPieces={onPieces}
+          onSound={onSound}
           onTab={onTab}
           onOpenArchive={onOpenArchive}
           onLoadFen={onLoadFen}
@@ -165,6 +169,7 @@ function Config({
   onReview,
   onBoard,
   onPieces,
+  onSound,
   onTab,
   onOpenArchive,
   onLoadFen,
@@ -177,6 +182,7 @@ function Config({
   onReview: (review: boolean) => void
   onBoard: (board: BoardTheme) => void
   onPieces: (pieces: PieceStyle) => void
+  onSound: (sound: boolean) => void
   onTab: (tab: Tab) => void
   onOpenArchive: (id: string) => void
   onLoadFen: (fen: string) => string | null
@@ -246,6 +252,13 @@ function Config({
         </div>
       </Field>
 
+      <Field title="Som" hint="Toque no lance, na escolha e no fim da partida. O kit é o de seno do snd.dev.">
+        <div className="flex items-center justify-between">
+          <span className="text-[13px]">{session.sound ? "Ligado" : "Mudo"}</span>
+          <SpringSwitch checked={session.sound} label="Som" onChange={onSound} />
+        </div>
+      </Field>
+
       <Field title="Sua cor" hint="O tabuleiro gira com a cor. Se a partida já andou, trocar começa outra.">
         <Choice
           label="Cor"
@@ -288,15 +301,10 @@ function Config({
 
       {session.assistance === "livre" && (
         <Field title="Linha depois do lance" hint="Dá para calar. A contagem de coincidência continua.">
-          <Choice
-            label="Revisão"
-            value={session.review ? "sim" : "nao"}
-            onChange={(value) => onReview(value === "sim")}
-            options={[
-              { value: "sim", label: "Mostrar" },
-              { value: "nao", label: "Calar" },
-            ]}
-          />
+          <div className="flex items-center justify-between">
+            <span className="text-[13px]">{session.review ? "Mostrar" : "Calar"}</span>
+            <SpringSwitch checked={session.review} label="Revisão" onChange={onReview} />
+          </div>
         </Field>
       )}
 
