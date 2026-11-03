@@ -524,56 +524,72 @@ function Game({
       <Separator />
 
       <section>
-        <p className="mb-1.5 text-[13px] font-medium">Lances</p>
-        {session.sans.length === 0 ? (
-          <p className="text-[13px] text-muted-foreground">A partida ainda não começou.</p>
-        ) : (
-          <div className="max-h-44 overflow-y-auto rounded-[6px] border border-border px-2 py-1">
-            <ol ref={listRef} className="space-y-0.5 text-[13px]">
-              {rows(session.sans).map((row) => (
-                <li key={row.n} className="grid grid-cols-[1.5rem_1fr_1fr] gap-1">
-                  <span className="text-muted-foreground">{row.n}</span>
-                  <MoveButton
-                    san={row.white}
-                    active={activePly(row.whitePly, viewPly, atLive, session.sans.length)}
-                    onClick={() => onView(row.whitePly)}
-                  />
-                  {row.black && row.blackPly ? (
-                    <MoveButton
-                      san={row.black}
-                      active={activePly(row.blackPly, viewPly, atLive, session.sans.length)}
-                      onClick={() => onView(row.blackPly!)}
-                    />
-                  ) : (
-                    <span />
-                  )}
-                </li>
-              ))}
-            </ol>
+        <div className="mb-2 flex items-baseline justify-between">
+          <p className="text-[13px] font-medium">Caderno</p>
+          <p className="text-[12px] text-white/40">
+            {session.notes.length === 0 ? "Nenhuma página" : `${session.notes.length} ${session.notes.length === 1 ? "página" : "páginas"}`}
+          </p>
+        </div>
+        {session.notes.length > 0 && (
+          <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
+            {session.notes.map((note) => (
+              <button
+                key={note.ply}
+                type="button"
+                onClick={() => onView(note.ply)}
+                className={
+                  note.ply === notePly
+                    ? "shrink-0 rounded-full bg-white px-2 py-0.5 text-[12px] text-[#161616]"
+                    : "shrink-0 rounded-full bg-white/8 px-2 py-0.5 text-[12px] text-white/70"
+                }
+              >
+                {sanPt(note.san)}
+              </button>
+            ))}
           </div>
         )}
-      </section>
-
-      <section className="space-y-2 rounded-[6px] border border-border p-2.5">
-        <p className="text-[13px] font-medium">Caderno</p>
-        {session.notes.length === 0 && !noteSan && (
-          <p className="text-[13px] leading-5 text-muted-foreground">
-            Depois de um lance, escreva o que ficou. A nota fica neste navegador.
-          </p>
-        )}
-        {session.notes.length > 0 && (
-          <ul className="space-y-1.5">
-            {session.notes.map((note) => (
-              <li key={note.ply}>
-                <button type="button" className="text-left text-[13px] leading-5" onClick={() => onView(note.ply)}>
-                  <span className="text-muted-foreground">
-                    {sanPt(note.san)} · {TAGS.find((tag) => tag.value === note.tag)?.label}
-                  </span>
-                  <span className="block">{note.text}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        {session.sans.length === 0 ? (
+          <p className="text-[13px] leading-5 text-muted-foreground">A primeira página abre no primeiro lance.</p>
+        ) : (
+          <div className="max-h-40 overflow-y-auto">
+            <ol ref={listRef} className="space-y-0.5 text-[13px]">
+              {rows(session.sans).map((row) => {
+                const whiteNote = session.notes.find((note) => note.ply === row.whitePly)
+                const blackNote = row.blackPly ? session.notes.find((note) => note.ply === row.blackPly) : undefined
+                return (
+                  <li key={row.n} className="grid grid-cols-[1.5rem_1fr_1fr] gap-x-1">
+                    <span className="text-muted-foreground">{row.n}</span>
+                    <MoveButton
+                      san={row.white}
+                      noted={Boolean(whiteNote)}
+                      active={activePly(row.whitePly, viewPly, atLive, session.sans.length)}
+                      onClick={() => onView(row.whitePly)}
+                    />
+                    {row.black && row.blackPly ? (
+                      <MoveButton
+                        san={row.black}
+                        noted={Boolean(blackNote)}
+                        active={activePly(row.blackPly, viewPly, atLive, session.sans.length)}
+                        onClick={() => onView(row.blackPly!)}
+                      />
+                    ) : (
+                      <span />
+                    )}
+                    {whiteNote && (
+                      <p className="col-span-3 border-l border-white/15 py-0.5 pl-2 text-[12px] leading-4 text-white/50">
+                        {whiteNote.text}
+                      </p>
+                    )}
+                    {blackNote && (
+                      <p className="col-span-3 border-l border-white/15 py-0.5 pl-2 text-[12px] leading-4 text-white/50">
+                        {blackNote.text}
+                      </p>
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
+          </div>
         )}
         {noteSan && (
           <Notebook
@@ -686,45 +702,48 @@ function Notebook({
 
   return (
     <form
-      className="space-y-1.5"
+      className="mt-3 border-l border-white/15 pl-3"
       onSubmit={(event) => {
         event.preventDefault()
         onSave(text, tag)
       }}
     >
-      <p className="text-[13px]">Nota em {sanPt(san)}</p>
-      <ToggleGroup
-        value={[tag]}
-        onValueChange={(values) => {
-          const picked = values.find((item) => item !== tag) ?? values[0]
-          if (picked) setTag(picked as NoteTag)
-        }}
-        variant="outline"
-        size="sm"
-        spacing={1}
-        className="w-full flex-wrap"
-      >
-        {TAGS.map((item) => (
-          <ToggleGroupItem key={item.value} value={item.value} className={choiceClass}>
-            {item.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <p className="text-[18px] leading-6 font-medium tracking-tight">
+        {Math.ceil(ply / 2)} · {sanPt(san)}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1" role="radiogroup" aria-label="Marca da página">
+        {TAGS.map((item) => {
+          const selected = tag === item.value
+          return (
+            <button
+              key={item.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setTag(item.value)}
+              className={selected ? "text-[12px] text-white" : "text-[12px] text-white/35"}
+            >
+              {item.label}
+            </button>
+          )
+        })}
+      </div>
       <Textarea
         value={text}
         maxLength={400}
         onChange={(event) => setText(event.target.value)}
-        placeholder="O que ficou deste lance"
-        aria-label={`Nota em ${sanPt(san)}`}
+        placeholder="Escreva nesta página."
+        aria-label={`Página de ${sanPt(san)}`}
+        className="mt-2 min-h-16 border-0 bg-transparent px-0 py-1 text-[14px] leading-6 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
       />
-      <div className="flex gap-1.5">
-        <Button type="submit" size="sm" disabled={text.trim().length === 0}>
-          Guardar
-        </Button>
+      <div className="mt-1 flex items-center gap-3">
+        <button type="submit" disabled={text.trim().length === 0} className="text-[12px] text-white disabled:text-white/25">
+          Guardar página
+        </button>
         {note && (
-          <Button type="button" variant="ghost" size="sm" onClick={onDelete}>
+          <button type="button" onClick={onDelete} className="text-[12px] text-white/40">
             Apagar
-          </Button>
+          </button>
         )}
       </div>
     </form>
@@ -766,10 +785,12 @@ function Choice<T extends string>({
 
 function MoveButton({
   san,
+  noted,
   active,
   onClick,
 }: {
   san: string
+  noted: boolean
   active: boolean
   onClick: () => void
 }) {
@@ -777,9 +798,10 @@ function MoveButton({
     <button
       type="button"
       onClick={onClick}
-      className={active ? "rounded-[6px] bg-foreground/10 px-1 text-left" : "px-1 text-left"}
+      className={active ? "rounded-[6px] bg-white/10 px-1 text-left text-white" : "px-1 text-left text-white/80"}
     >
       {san}
+      {noted && <span className="ml-1 inline-block size-1 translate-y-[-1px] rounded-full bg-white/70" />}
     </button>
   )
 }

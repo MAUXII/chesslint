@@ -95,9 +95,9 @@ A força do adversário muda o lance que ele responde, não a sugestão. A suges
 
 ## Caderno
 
-Cada lance aceita uma nota curta e uma etiqueta: ideia, erro, abertura, tática, final. A nota gruda no lance, com a FEN de onde ele foi feito e o SAN. Uma nota por lance: escrever de novo substitui. Dá para apagar.
+O caderno é a coluna do jogo. A lista de lances é o índice. Um lance com nota ganha um ponto e a frase aparece debaixo dele, na margem. As páginas já escritas ficam numa fila de nomes: tocar uma abre aquele lance.
 
-Com a lista vazia, a frase é: "Nada anotado. Depois de um lance, escreva o que ficou."
+A página aberta é o lance selecionado. O título é o número e o lance. A marca — ideia, erro, abertura, tática, final — é uma palavra, não um botão. O texto é a página. Guardar escreve de novo por cima. Apagar tira a página. Antes do primeiro lance, a frase é: "A primeira página abre no primeiro lance."
 
 ## Partida e estudo
 
@@ -119,7 +119,7 @@ O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde 
 
 As peças são três conjuntos publicados, no estado em que foram desenhados. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0: o cavalo de perfil, a coroa e a torre com ameias, na linha do que se lê no Chess.com e no Chess in the Park, do Discord. Staunton é o Fantasy, e Celta é o Celtic, os dois de Maurizio Monge, MIT, na linha do Lichess. A nota está em `public/pieces/NOTICE.md`.
 
-No fundo da página nada um oceano em ASCII, o [ascii-sharks](https://github.com/stackedlol/ascii-sharks) de drewdi, MIT, copiado em `src/vendor/ascii-sharks`. O corpo, a nadadeira e o rabo são os daquele desenho, e o nado é o da simulação de lá: a coluna segue a cabeça, o rabo bate, o cardume abre quando o tubarão chega. Há um tubarão clássico, um martelo e um martelo grande. O fundo da água é `#151618`. O clique fica no tabuleiro. Se o sistema pedir menos movimento, o oceano para num quadro só.
+No fundo da página o nado é o do [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT. O desenho é outro: caractere pequeno, só branco, apagado, com dither Bayer e um tremor de meio pixel. Sem grade e sem cor. O cardume é curto, para a água não competir com o tabuleiro. O clique fica no tabuleiro. Se o sistema pedir menos movimento, o oceano para num quadro só.
 
 A barra de avaliação é fina, à esquerda do tabuleiro, preenchida de baixo para cima do ponto de vista das brancas. Avaliação em peões com vírgula (`+0,4`). Mate em n lances quando a linha é de mate.
 
