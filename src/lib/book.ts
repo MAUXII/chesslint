@@ -94,6 +94,41 @@ export function buildBook(lines: OpeningLine[] = OPENING_LINES): Map<string, str
 
 const book = buildBook()
 
+const OPENING_TITLES: { name: string; moves: string[] }[] = [
+  { name: "Abertura do rei", moves: ["e4"] },
+  { name: "Partida aberta", moves: ["e4", "e5"] },
+  { name: "Ruy López", moves: ["e4", "e5", "Nf3", "Nc6", "Bb5"] },
+  { name: "Defesa Berlim", moves: ["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6"] },
+  { name: "Italiana", moves: ["e4", "e5", "Nf3", "Nc6", "Bc4"] },
+  { name: "Giuoco Piano", moves: ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5"] },
+  { name: "Defesa Petrov", moves: ["e4", "e5", "Nf3", "Nf6"] },
+  { name: "Siciliana", moves: ["e4", "c5"] },
+  { name: "Siciliana Najdorf", moves: ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6"] },
+  { name: "Defesa Francesa", moves: ["e4", "e6"] },
+  { name: "Caro-Kann", moves: ["e4", "c6"] },
+  { name: "Escandinava", moves: ["e4", "d5"] },
+  { name: "Abertura da dama", moves: ["d4"] },
+  { name: "Gambito da Dama", moves: ["d4", "d5", "c4"] },
+  { name: "Gambito da Dama recusado", moves: ["d4", "d5", "c4", "e6"] },
+  { name: "Índia do Rei", moves: ["d4", "Nf6", "c4", "g6"] },
+  { name: "Defesa Grünfeld", moves: ["d4", "Nf6", "c4", "g6", "Nc3", "d5"] },
+  { name: "Abertura Réti", moves: ["Nf3"] },
+  { name: "Abertura Inglesa", moves: ["c4"] },
+]
+
+export function openingTitle(sans: string[]): string | null {
+  let name: string | null = null
+  let length = 0
+  for (const line of OPENING_TITLES) {
+    if (line.moves.length <= length) continue
+    const matches = line.moves.every((san, index) => sans[index] === san)
+    if (!matches) continue
+    name = line.name
+    length = line.moves.length
+  }
+  return name
+}
+
 export function lookupBook(fen: string): string | null {
   return book.get(bookKey(fen)) ?? null
 }

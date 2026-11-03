@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest"
 
-import { OPENING_LINES, buildBook, lookupBook } from "@/lib/book"
-import { parseBestmove, parseInfo } from "@/lib/engine-parse"
+import { OPENING_LINES, buildBook, lookupBook, openingTitle } from "@/lib/book"
+import { DRILLS, drillProgress } from "@/lib/drills"
+import { centipawnLoss, parseBestmove, parseInfo } from "@/lib/engine-parse"
 import { placements, parseFen, replay } from "@/lib/game"
 import { resolveHuman, plyOf } from "@/lib/human"
 import { pickNatural, scoreNatural } from "@/lib/natural"
 import { formatCp, sanPt } from "@/lib/notation"
 import { reducer, initialState } from "@/lib/reducer"
 import { isOpenWater } from "@/lib/sea"
-import { fenBefore, loadSession } from "@/lib/session"
+import { dropLine, fenBefore, loadSession } from "@/lib/session"
 
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -41,6 +42,15 @@ describe("livro", () => {
 
   it("não sugere a3", () => {
     expect(lookupBook(replay(START, ["a3"]).fen())).toBeNull()
+  })
+
+  it("nomeia a linha mais longa que cabe", () => {
+    expect(openingTitle(["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"])).toBe("Ruy López")
+    expect(openingTitle(["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6"])).toBe("Defesa Berlim")
+    expect(openingTitle(["e4", "c5"])).toBe("Siciliana")
+    expect(openingTitle(["d4", "Nf6", "c4", "g6", "Nc3", "d5"])).toBe("Defesa Grünfeld")
+    expect(openingTitle(["a3"])).toBeNull()
+    expect(openingTitle([])).toBeNull()
   })
 })
 
@@ -110,6 +120,71 @@ describe("tabuleiro", () => {
   it("recusa uma FEN inválida", () => {
     expect(parseFen("não")).toBeNull()
     expect(parseFen("4k3/8/8/8/8/8/8/4K2R w - - 0 40")).toBeTruthy()
+  })
+})
+
+describe("revisão", () => {
+  const analysis = {
+    fen: START,
+    best: "e2e4",
+    lines: [
+      { multipv: 1, cp: 40, mate: null, pv: ["e2e4", "e7e5"] },
+      { multipv: 2, cp: 10, mate: null, pv: ["d2d4", "d7d5"] },
+    ],
+  }
+
+  it("guarda zero quando o lance é o do motor", () => {
+    let state = reducer(initialState, { type: "analysis", analysis })
+    state = reducer(state, { type: "user-move", san: "e4" })
+    expect(state.session.marks[0]).toEqual({ ply: 1, matched: true, drop: 0 })
+    expect(centipawnLoss(analysis, "e2e4")).toBe(0)
+  })
+
+  it("guarda a queda quando o lance está na linha", () => {
+    let state = reducer(initialState, { type: "analysis", analysis })
+    state = reducer(state, { type: "user-move", san: "d4" })
+    expect(state.session.marks[0]).toEqual({ ply: 1, matched: false, drop: 30 })
+    expect(dropLine(state.session.marks, state.session.sans)).toBe(
+      "A avaliação caiu mais no lance 1, d4, 0,3 peões.",
+    )
+  })
+
+  it("deixa a queda em branco quando o lance não entrou na busca", () => {
+    let state = reducer(initialState, { type: "analysis", analysis })
+    state = reducer(state, { type: "user-move", san: "a3" })
+    expect(state.session.marks[0]).toEqual({ ply: 1, matched: false, drop: null })
+    expect(dropLine(state.session.marks, state.session.sans)).toBeNull()
+  })
+
+  it("lê uma marca antiga sem a queda", () => {
+    const loaded = loadSession(JSON.stringify({ startFen: START, sans: ["e4"], marks: [{ ply: 1, matched: true }] }))
+    expect(loaded?.marks[0]).toEqual({ ply: 1, matched: true, drop: null })
+    expect(loaded?.drillId).toBeNull()
+  })
+})
+
+describe("treino", () => {
+  it("abre cada posição e aceita o lance", () => {
+    for (const drill of DRILLS) {
+      expect(parseFen(drill.fen)).toBe(drill.fen)
+      for (const san of drill.solutions) {
+        expect(replay(drill.fen, [san]).history()).toEqual([san])
+      }
+    }
+    expect(drillProgress(DRILLS[0], [])).toBe("waiting")
+    expect(drillProgress(DRILLS[0], ["Ra8#"])).toBe("solved")
+    expect(drillProgress(DRILLS[0], ["h3"])).toBe("missed")
+  })
+
+  it("troca a tela para a posição e guarda a partida de antes", () => {
+    let state = reducer(initialState, { type: "user-move", san: "e4" })
+    state = reducer(state, { type: "start-drill", id: "mate-torre" })
+    expect(state.session.sans).toEqual([])
+    expect(state.session.drillId).toBe("mate-torre")
+    expect(state.session.tab).toBe("jogo")
+    expect(state.session.startFen).toBe(DRILLS[0].fen)
+    expect(state.session.archive).toHaveLength(1)
+    expect(state.session.archive[0]?.sans).toEqual(["e4"])
   })
 })
 

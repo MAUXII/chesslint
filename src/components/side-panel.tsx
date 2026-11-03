@@ -9,10 +9,15 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { openingTitle } from "@/lib/book"
+import { DRILLS, drillById, drillProgress } from "@/lib/drills"
+import { START_FEN } from "@/lib/game"
 import { BOARD_THEMES, PIECE_STYLES, type BoardTheme, type PieceStyle } from "@/lib/look"
-import { sanPt } from "@/lib/notation"
+import { formatDrop, sanPt } from "@/lib/notation"
 import {
   TAGS,
+  dropLine,
+  largestDrop,
   type Assistance,
   type Color,
   type Mode,
@@ -80,6 +85,7 @@ export function SidePanel({
   onDeleteNote,
   onOpenArchive,
   onLoadFen,
+  onStartDrill,
 }: {
   session: Session
   atLive: boolean
@@ -112,6 +118,7 @@ export function SidePanel({
   onDeleteNote: (ply: number) => void
   onOpenArchive: (id: string) => void
   onLoadFen: (fen: string) => string | null
+  onStartDrill: (id: string) => void
 }) {
   return (
     <aside data-sea-block="" className="flex w-full flex-col gap-3 rounded-[6px] border border-border bg-card p-3 lg:max-h-[calc(100dvh-7.5rem)] lg:w-[320px] lg:shrink-0 lg:overflow-y-auto">
@@ -129,6 +136,7 @@ export function SidePanel({
           onTab={onTab}
           onOpenArchive={onOpenArchive}
           onLoadFen={onLoadFen}
+          onStartDrill={onStartDrill}
         />
       ) : (
         <Game
@@ -153,6 +161,7 @@ export function SidePanel({
           onBack={onBack}
           onSaveNote={onSaveNote}
           onDeleteNote={onDeleteNote}
+          onOpenArchive={onOpenArchive}
         />
       )}
     </aside>
@@ -172,6 +181,7 @@ function Config({
   onTab,
   onOpenArchive,
   onLoadFen,
+  onStartDrill,
 }: {
   session: Session
   onPlayer: (player: Color) => void
@@ -185,6 +195,7 @@ function Config({
   onTab: (tab: Tab) => void
   onOpenArchive: (id: string) => void
   onLoadFen: (fen: string) => string | null
+  onStartDrill: (id: string) => void
 }) {
   const [fen, setFen] = useState("")
   const [fenError, setFenError] = useState<string | null>(null)
@@ -202,6 +213,11 @@ function Config({
       <Button className="w-full" onClick={() => onTab("jogo")}>
         Ir para o jogo
       </Button>
+
+      <Field title="Treino" hint="Uma posição para achar o lance. O motor não responde enquanto o treino está aberto.">
+        <DrillList kind="exercicio" label="Exercício" onStart={onStartDrill} />
+        <DrillList kind="final" label="Final" onStart={onStartDrill} />
+      </Field>
 
       <Field title="Tabuleiro" hint="A cor das casas. As peças continuam nas duas tintas.">
         <div className="grid grid-cols-2 gap-1.5">
@@ -384,6 +400,8 @@ function Config({
   )
 }
 
+type Moment = "agora" | "lista" | "pagina"
+
 function Game({
   session,
   atLive,
@@ -406,6 +424,7 @@ function Game({
   onBack,
   onSaveNote,
   onDeleteNote,
+  onOpenArchive,
 }: {
   session: Session
   atLive: boolean
@@ -428,80 +447,119 @@ function Game({
   onBack: () => void
   onSaveNote: (note: Note) => void
   onDeleteNote: (ply: number) => void
+  onOpenArchive: (id: string) => void
 }) {
   const notePly = !atLive && viewPly ? viewPly : session.sans.length
   const noteSan = notePly > 0 ? session.sans[notePly - 1] : null
-  const playing = situation(session)
+  const drill = drillById(session.drillId)
+  const progress = drill ? drillProgress(drill, session.sans) : null
+  const playing = drill ? { title: drill.title, body: drill.prompt } : situation(session)
+  const opening = !drill && session.startFen === START_FEN ? openingTitle(session.sans) : null
+  const fallen = largestDrop(session.marks, session.sans)
+  const fallenText = dropLine(session.marks, session.sans)
+  const pageMark = session.marks.find((mark) => mark.ply === notePly) ?? null
+  const gameKey = `${session.startFen}|${session.drillId ?? ""}`
+  const [seenGame, setSeenGame] = useState(gameKey)
+  const [moment, setMoment] = useState<Moment>("agora")
+  if (seenGame !== gameKey) {
+    setSeenGame(gameKey)
+    setMoment("agora")
+  }
   const listRef = useRef<HTMLOListElement>(null)
+  const quiet = Boolean(drill)
 
   useEffect(() => {
-    if (!atLive) return
+    if (moment !== "lista" || !atLive) return
     const list = listRef.current
     list?.parentElement?.scrollTo({ top: list.scrollHeight })
-  }, [atLive, session.sans.length])
+  }, [atLive, moment, session.sans.length])
+
+  function openPly(ply: number) {
+    onView(ply)
+    setMoment("pagina")
+  }
 
   return (
     <>
       <div className="space-y-1">
         <h2 className="text-[15px] font-medium tracking-tight">{playing.title}</h2>
+        {opening && <p className="text-[13px] text-muted-foreground">Abertura · {opening}</p>}
         <p className="text-[13px] leading-5 text-muted-foreground">{playing.body}</p>
       </div>
 
-      {session.sans.length === 0 && atLive && !result && (
-        <p className="text-[13px] leading-5">
-          {session.mode === "estudo"
-            ? "Toque uma peça e depois a casa, ou arraste. Vale para os dois lados."
-            : session.player === "w"
-              ? "Toque uma peça branca e depois a casa, ou arraste."
-              : "As pretas estão embaixo. Espere o motor, e depois jogue do mesmo jeito."}
-        </p>
-      )}
-
-      {result && atLive && (
+      {moment === "agora" && (
         <div className="space-y-1 text-[13px] leading-5">
-          <p>{result}</p>
-          {attempts > 0 && (
+          {session.sans.length === 0 && atLive && !result && !drill && (
+            <p>
+              {session.mode === "estudo"
+                ? "Toque uma peça e depois a casa, ou arraste. Vale para os dois lados."
+                : session.player === "w"
+                  ? "Toque uma peça branca e depois a casa, ou arraste."
+                  : "As pretas estão embaixo. Espere o motor, e depois jogue do mesmo jeito."}
+            </p>
+          )}
+          {progress === "solved" && <p>Esse é o lance.</p>}
+          {progress === "missed" && <p>Ainda não. Desfaça e tente outro.</p>}
+          {result && atLive && !drill && <p>{result}</p>}
+          {!quiet && result && atLive && attempts > 0 && (
             <p className="text-muted-foreground">
               Você coincidiu com o motor em {matches} de {attempts} lances.
             </p>
           )}
-        </div>
-      )}
-      {!result && attempts > 0 && (
-        <p className="text-[13px] text-muted-foreground">
-          {matches} de {attempts} com o motor.
-        </p>
-      )}
-
-      <div className="space-y-1 text-[13px] leading-5">
-        {evalText !== "—" && <p className="tabular-nums text-muted-foreground">Avaliação {evalText}</p>}
-        {session.assistance === "livre" && reviewText && <p>{reviewText}</p>}
-        {session.assistance === "livre" && (
-          <button
-            type="button"
-            className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-            onClick={() => onReview(!session.review)}
-          >
-            {session.review ? "Calar a revisão" : "Rever o lance"}
-          </button>
-        )}
-        {session.assistance === "melhor" && pv && <p>Linha {pv}</p>}
-        {session.assistance === "humano" && human?.coincides === true && (
-          <p>O lance natural coincide com o do motor.</p>
-        )}
-        {session.assistance === "humano" && human?.coincides === false && (
-          <div className="space-y-1">
+          {!quiet && !result && attempts > 0 && (
+            <p className="text-muted-foreground">
+              {matches} de {attempts} com o motor.
+            </p>
+          )}
+          {evalText !== "—" && <p className="tabular-nums text-muted-foreground">Avaliação {evalText}</p>}
+          {fallenText && fallen && (
+            <button type="button" className="text-left text-muted-foreground" onClick={() => openPly(fallen.ply)}>
+              {fallenText}
+            </button>
+          )}
+          {!quiet && session.assistance === "livre" && reviewText && <p>{reviewText}</p>}
+          {!quiet && session.assistance === "livre" && (
             <button
               type="button"
               className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-              onClick={onToggleEngine}
+              onClick={() => onReview(!session.review)}
             >
-              {showEngine ? "Ocultar o do motor" : "Ver o do motor"}
+              {session.review ? "Calar a revisão" : "Rever o lance"}
             </button>
-            {showEngine && human.engineSan && <p>O motor jogaria {human.engineSan}.</p>}
-          </div>
-        )}
-      </div>
+          )}
+          {!quiet && session.assistance === "melhor" && pv && <p>Linha {pv}</p>}
+          {!quiet && session.assistance === "humano" && human?.coincides === true && (
+            <p>O lance natural coincide com o do motor.</p>
+          )}
+          {!quiet && session.assistance === "humano" && human?.coincides === false && (
+            <div className="space-y-1">
+              <button
+                type="button"
+                className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                onClick={onToggleEngine}
+              >
+                {showEngine ? "Ocultar o do motor" : "Ver o do motor"}
+              </button>
+              {showEngine && human.engineSan && <p>O motor jogaria {human.engineSan}.</p>}
+            </div>
+          )}
+          {session.sans.length === 0 && !drill && session.archive.length > 0 && (
+            <div className="space-y-1 pt-1">
+              <p className="text-muted-foreground">Suas partidas</p>
+              {session.archive.slice(0, 4).map((game) => (
+                <button
+                  key={game.id}
+                  type="button"
+                  className="block text-left text-muted-foreground hover:text-foreground"
+                  onClick={() => onOpenArchive(game.id)}
+                >
+                  {game.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         <Button variant="outline" size="sm" onClick={onUndo} disabled={session.sans.length === 0 || !atLive}>
@@ -521,94 +579,122 @@ function Game({
         </Button>
       )}
 
-      <Separator />
+      <div role="tablist" aria-label="Momento" className="flex gap-3">
+        {(
+          [
+            ["agora", "Agora"],
+            ["lista", "Lista"],
+            ["pagina", "Página"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={moment === id}
+            onClick={() => setMoment(id)}
+            className={moment === id ? "text-[13px] text-white" : "text-[13px] text-white/35"}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <section>
-        <div className="mb-2 flex items-baseline justify-between">
-          <p className="text-[13px] font-medium">Caderno</p>
-          <p className="text-[12px] text-white/40">
-            {session.notes.length === 0 ? "Nenhuma página" : `${session.notes.length} ${session.notes.length === 1 ? "página" : "páginas"}`}
-          </p>
-        </div>
-        {session.notes.length > 0 && (
-          <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
-            {session.notes.map((note) => (
-              <button
-                key={note.ply}
-                type="button"
-                onClick={() => onView(note.ply)}
-                className={
-                  note.ply === notePly
-                    ? "shrink-0 rounded-full bg-white px-2 py-0.5 text-[12px] text-[#161616]"
-                    : "shrink-0 rounded-full bg-white/8 px-2 py-0.5 text-[12px] text-white/70"
-                }
-              >
-                {sanPt(note.san)}
-              </button>
-            ))}
-          </div>
-        )}
-        {session.sans.length === 0 ? (
-          <p className="text-[13px] leading-5 text-muted-foreground">A primeira página abre no primeiro lance.</p>
-        ) : (
-          <div className="max-h-40 overflow-y-auto">
-            <ol ref={listRef} className="space-y-0.5 text-[13px]">
-              {rows(session.sans).map((row) => {
-                const whiteNote = session.notes.find((note) => note.ply === row.whitePly)
-                const blackNote = row.blackPly ? session.notes.find((note) => note.ply === row.blackPly) : undefined
-                return (
-                  <li key={row.n} className="grid grid-cols-[1.5rem_1fr_1fr] gap-x-1">
-                    <span className="text-muted-foreground">{row.n}</span>
-                    <MoveButton
-                      san={row.white}
-                      noted={Boolean(whiteNote)}
-                      active={activePly(row.whitePly, viewPly, atLive, session.sans.length)}
-                      onClick={() => onView(row.whitePly)}
-                    />
-                    {row.black && row.blackPly ? (
+      {moment === "lista" && (
+        <section>
+          {session.sans.length === 0 ? (
+            <p className="text-[13px] leading-5 text-muted-foreground">A lista abre no primeiro lance.</p>
+          ) : (
+            <div className="max-h-64 overflow-y-auto">
+              <ol ref={listRef} className="space-y-0.5 text-[13px]">
+                {rows(session.sans).map((row) => {
+                  const whiteNote = session.notes.find((note) => note.ply === row.whitePly)
+                  const blackNote = row.blackPly ? session.notes.find((note) => note.ply === row.blackPly) : undefined
+                  return (
+                    <li key={row.n} className="grid grid-cols-[1.5rem_1fr_1fr] gap-x-1">
+                      <span className="text-muted-foreground">{row.n}</span>
                       <MoveButton
-                        san={row.black}
-                        noted={Boolean(blackNote)}
-                        active={activePly(row.blackPly, viewPly, atLive, session.sans.length)}
-                        onClick={() => onView(row.blackPly!)}
+                        san={row.white}
+                        noted={Boolean(whiteNote)}
+                        loss={fallen?.ply === row.whitePly ? fallen.drop : null}
+                        active={activePly(row.whitePly, viewPly, atLive, session.sans.length)}
+                        onClick={() => openPly(row.whitePly)}
                       />
-                    ) : (
-                      <span />
-                    )}
-                    {whiteNote && (
-                      <p className="col-span-3 border-l border-white/15 py-0.5 pl-2 text-[12px] leading-4 text-white/50">
-                        {whiteNote.text}
-                      </p>
-                    )}
-                    {blackNote && (
-                      <p className="col-span-3 border-l border-white/15 py-0.5 pl-2 text-[12px] leading-4 text-white/50">
-                        {blackNote.text}
-                      </p>
-                    )}
-                  </li>
-                )
-              })}
-            </ol>
+                      {row.black && row.blackPly ? (
+                        <MoveButton
+                          san={row.black}
+                          noted={Boolean(blackNote)}
+                          loss={fallen?.ply === row.blackPly ? fallen.drop : null}
+                          active={activePly(row.blackPly, viewPly, atLive, session.sans.length)}
+                          onClick={() => openPly(row.blackPly!)}
+                        />
+                      ) : (
+                        <span />
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          )}
+        </section>
+      )}
+
+      {moment === "pagina" && (
+        <section>
+          <div className="mb-2 flex items-baseline justify-between">
+            <p className="text-[13px] font-medium">Caderno</p>
+            <p className="text-[12px] text-white/40">
+              {session.notes.length === 0
+                ? "Nenhuma página"
+                : `${session.notes.length} ${session.notes.length === 1 ? "página" : "páginas"}`}
+            </p>
           </div>
-        )}
-        {noteSan && (
-          <Notebook
-            ply={notePly}
-            san={noteSan}
-            note={session.notes.find((note) => note.ply === notePly) ?? null}
-            onSave={(text, tag) =>
-              onSaveNote({
-                ply: notePly,
-                san: noteSan,
-                fen: "",
-                tag,
-                text,
-              })
-            }
-            onDelete={() => onDeleteNote(notePly)}
-          />
-        )}
-      </section>
+          {session.notes.length > 0 && (
+            <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
+              {session.notes.map((note) => (
+                <button
+                  key={note.ply}
+                  type="button"
+                  onClick={() => openPly(note.ply)}
+                  className={
+                    note.ply === notePly
+                      ? "shrink-0 rounded-full bg-white px-2 py-0.5 text-[12px] text-[#161616]"
+                      : "shrink-0 rounded-full bg-white/8 px-2 py-0.5 text-[12px] text-white/70"
+                  }
+                >
+                  {sanPt(note.san)}
+                </button>
+              ))}
+            </div>
+          )}
+          {!noteSan && (
+            <p className="text-[13px] leading-5 text-muted-foreground">A primeira página abre no primeiro lance.</p>
+          )}
+          {noteSan && pageMark && pageMark.drop != null && pageMark.drop >= 20 && (
+            <p className="mb-2 text-[12px] text-white/40">
+              A avaliação caiu {formatDrop(pageMark.drop)} peões neste lance.
+            </p>
+          )}
+          {noteSan && (
+            <Notebook
+              ply={notePly}
+              san={noteSan}
+              note={session.notes.find((note) => note.ply === notePly) ?? null}
+              onSave={(text, tag) =>
+                onSaveNote({
+                  ply: notePly,
+                  san: noteSan,
+                  fen: "",
+                  tag,
+                  text,
+                })
+              }
+              onDelete={() => onDeleteNote(notePly)}
+            />
+          )}
+        </section>
+      )}
     </>
   )
 }
@@ -786,11 +872,13 @@ function Choice<T extends string>({
 function MoveButton({
   san,
   noted,
+  loss,
   active,
   onClick,
 }: {
   san: string
   noted: boolean
+  loss: number | null
   active: boolean
   onClick: () => void
 }) {
@@ -802,7 +890,35 @@ function MoveButton({
     >
       {san}
       {noted && <span className="ml-1 inline-block size-1 translate-y-[-1px] rounded-full bg-white/70" />}
+      {loss != null && <span className="ml-1 text-[11px] text-white/35 tabular-nums">−{formatDrop(loss)}</span>}
     </button>
+  )
+}
+
+function DrillList({
+  kind,
+  label,
+  onStart,
+}: {
+  kind: "exercicio" | "final"
+  label: string
+  onStart: (id: string) => void
+}) {
+  const items = DRILLS.filter((drill) => drill.kind === kind)
+  return (
+    <div className="space-y-1">
+      <p className="text-[12px] text-white/40">{label}</p>
+      {items.map((drill) => (
+        <button
+          key={drill.id}
+          type="button"
+          className="block text-left text-[13px] text-muted-foreground hover:text-foreground"
+          onClick={() => onStart(drill.id)}
+        >
+          {drill.title}
+        </button>
+      ))}
+    </div>
   )
 }
 

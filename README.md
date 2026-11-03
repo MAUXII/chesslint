@@ -4,6 +4,8 @@ Tabuleiro de xadrez de uma tela, com um caderno no lance.
 
 Você escolhe a cor, joga contra o motor ou estuda os dois lados, e pede o lance do motor ou um lance natural. A nota fica no lance, neste navegador.
 
+A coluna tem três momentos: o agora, a lista e a página do lance. O nome da abertura sai do livro do Lance. Onde a avaliação caiu fica nesse lance. Em Configurar, Treino abre um exercício ou um final, e uma partida anterior volta para o tabuleiro.
+
 O texto completo do projeto está em [specification.md](specification.md).
 
 ## Rodar

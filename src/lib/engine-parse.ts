@@ -44,6 +44,15 @@ export function moverCp(line: PvLine): number {
   return line.cp ?? 0
 }
 
+export function centipawnLoss(analysis: Analysis, lan: string): number | null {
+  if (!analysis.best) return null
+  if (lan === analysis.best) return 0
+  const best = analysis.lines.find((line) => line.pv[0] === analysis.best)
+  const played = analysis.lines.find((line) => line.pv[0] === lan)
+  if (!best || !played) return null
+  return Math.max(0, moverCp(best) - moverCp(played))
+}
+
 export function toWhite(
   turn: "w" | "b",
   cp: number | null,

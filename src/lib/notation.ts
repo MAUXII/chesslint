@@ -20,6 +20,11 @@ export function formatCp(cp: number): string {
   return "0,0"
 }
 
+export function formatDrop(cp: number): string {
+  if (cp >= 1000) return "10+"
+  return (cp / 100).toFixed(1).replace(".", ",")
+}
+
 export function formatMate(mate: number): string {
   const n = Math.abs(mate)
   if (n === 0) return "xeque-mate"

@@ -159,7 +159,7 @@ Gravação em tempo real. A mesma entrada contínua pode gravar a partida enquan
 
 Nuvem. O caderno pode sair deste navegador. Esta versão não sincroniza.
 
-Puzzles. Não entram agora. O aprendizado desta versão é a nota no lance e o número de coincidência. O som desta versão é o kit de seno: toque na escolha, botão no lance, interruptor ao ligar e calar, um festejo no fim da partida, e um aviso quando a FEN não abre.
+Catálogo grande de exercícios. Entram quatro posições escritas aqui: mate em um, um garfo, rei e peão, e torre. Uma base grande só entra com licença clara. O som desta versão é o kit de seno: toque na escolha, botão no lance, interruptor ao ligar e calar, um festejo no fim da partida, e um aviso quando a FEN não abre.
 
 ## Critérios desta versão
 
@@ -171,15 +171,15 @@ Puzzles. Não entram agora. O aprendizado desta versão é a nota no lance e o n
 - Promoção, roque, captura, xeque e fim de jogo funcionam.
 - O motor que falha ao carregar não quebra o tabuleiro: a coluna explica, e as regras locais continuam no modo estudo.
 
-## Ordem
+## O que entrou
 
-O que os outros sites tratam como produto pago, ou como estudo completo, entra no Lance feito aqui. A ordem é esta.
+O estudo que outros sites separam como produto pago está nesta tela, feito com o Stockfish e com o livro daqui.
 
-1. Coluna. Três momentos: o que está acontecendo, a lista, a página do lance. O resto fica quieto.
-2. Revisão. Onde a avaliação caiu, e o quanto cada lance chegou perto do motor. O Stockfish que já roda aqui faz a conta.
-3. Abertura. O nome da linha, a partir de um livro com licença, não de uma base fechada.
-4. Exercício. Uma posição para achar o lance. Um catálogo grande só entra com licença clara.
-5. Final. Posição de rei e peão, ou de torre, para treinar o que a tabela já decide.
-6. Explorar a própria partida. Os lances que você jogou, abertos de novo no tabuleiro. A base de milhões de partidas de outras pessoas fica de fora enquanto não houver uma fonte aberta.
+1. Coluna. Três momentos: Agora, Lista e Página. O resto fica quieto.
+2. Revisão. O lance em que a avaliação mais caiu, em peões, quando o motor já tinha a linha. O número aparece só nesse lance.
+3. Abertura. O nome da linha, pelo livro do Lance.
+4. Exercício. Mate em um, e um garfo. O catálogo grande continua de fora.
+5. Final. Rei e peão, e torre. O motor não responde enquanto o treino está aberto.
+6. A própria partida. Reabre do arquivo, com as notas e a queda da avaliação. A base de partidas de outras pessoas fica de fora.
 
 Ficam de fora, porque não são o tabuleiro: vídeo-aula, conta, anúncio, torneio, transmissão e um treinador que conversa. O Lance não copia o cliente de outro site.

@@ -1,4 +1,5 @@
-import type { Analysis } from "@/lib/engine-parse"
+import { drillById } from "@/lib/drills"
+import { centipawnLoss, type Analysis } from "@/lib/engine-parse"
 import { safeMove, replay } from "@/lib/game"
 import { formatMoverScore, uciParts } from "@/lib/notation"
 import {
@@ -66,6 +67,7 @@ export type Action =
   | { type: "save-note"; note: Note }
   | { type: "delete-note"; ply: number }
   | { type: "open-archive"; id: string }
+  | { type: "start-drill"; id: string }
 
 export const initialState: State = {
   hydrated: false,
@@ -143,6 +145,8 @@ export function reducer(state: State, action: Action): State {
       }
     case "open-archive":
       return openArchive(state, action.id)
+    case "start-drill":
+      return startDrill(state, action.id)
     default:
       return state
   }
@@ -158,7 +162,14 @@ function applyUserMove(state: State, san: string): State {
   let reviewLine: Review | null = null
   if (analysisMatches(state.analysis, before) && state.analysis?.best) {
     const same = move.lan === state.analysis.best
-    marks = [...marks, { ply: state.session.sans.length + 1, matched: same }]
+    marks = [
+      ...marks,
+      {
+        ply: state.session.sans.length + 1,
+        matched: same,
+        drop: centipawnLoss(state.analysis, move.lan),
+      },
+    ]
     const bestSan = sanAt(before, state.analysis.best) ?? state.analysis.best
     const bestLine = state.analysis.lines.find((line) => line.pv[0] === state.analysis?.best)
     const playedLine = state.analysis.lines.find((line) => line.pv[0] === move.lan)
@@ -249,8 +260,23 @@ function openArchive(state: State, id: string): State {
     notes: item.notes,
     marks: item.marks,
     player: item.player,
+    drillId: null,
     archive: pushArchive({ ...state.session, archive: rest }),
   })
+}
+
+function startDrill(state: State, id: string): State {
+  const drill = drillById(id)
+  if (!drill) return state
+  return reset(
+    state,
+    freshPosition(state.session, {
+      startFen: drill.fen,
+      player: drill.player,
+      drillId: drill.id,
+      tab: "jogo",
+    }),
+  )
 }
 
 function sanAt(fen: string, uci: string): string | null {

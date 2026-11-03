@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { drillById, drillProgress } from "@/lib/drills"
 import { toWhite } from "@/lib/engine-parse"
 import { EngineClient } from "@/lib/engine"
 import { parseFen, placements, replay, resultText, safeMove, squareOfKing, toPgn } from "@/lib/game"
@@ -108,7 +109,8 @@ export function LanceScreen() {
   }, [])
 
   const gameOver = live.isGameOver()
-  const playerTurn = session.mode === "estudo" || live.turn() === session.player
+  const drilling = session.drillId != null
+  const playerTurn = session.mode === "estudo" || drilling || live.turn() === session.player
 
   useEffect(() => {
     if (!state.hydrated || state.engineStatus !== "ready") return
@@ -165,7 +167,7 @@ export function LanceScreen() {
     atLive &&
     !gameOver &&
     !state.thinking &&
-    (session.mode === "estudo" || live.turn() === session.player)
+    playerTurn
   const turn = canPlay ? shown.turn() : null
   const legals =
     selected && canPlay
@@ -192,7 +194,11 @@ export function LanceScreen() {
     setHeldEval({ fen: liveFen, cp: white.cp, mate: white.mate })
   }
   const human = session.assistance === "humano" && atLive ? resolveHuman(liveFen, matched) : null
-  const arrow = arrowFor(session.assistance, atLive, gameOver, playerTurn, matched?.best ?? null, human?.uci ?? null)
+  const arrow = drilling
+    ? null
+    : arrowFor(session.assistance, atLive, gameOver, playerTurn, matched?.best ?? null, human?.uci ?? null)
+  const drill = drillById(session.drillId)
+  const drillStatus = drill ? drillProgress(drill, session.sans) : null
 
   const review =
     session.assistance === "livre" && session.review && state.reviewLine
@@ -273,6 +279,7 @@ export function LanceScreen() {
             turn: live.turn(),
             tab: session.tab,
             welcomed: session.welcomed,
+            drill: drill ? { prompt: drill.prompt, status: drillStatus ?? "waiting" } : null,
           })}
         </p>
       </header>
@@ -381,6 +388,10 @@ export function LanceScreen() {
             dispatch({ type: "load-fen", fen: parsed })
             return null
           }}
+          onStartDrill={(id) => {
+            playSnd("button", session.sound)
+            dispatch({ type: "start-drill", id })
+          }}
         />
         )}
         {welcoming && (
@@ -479,6 +490,7 @@ function headerStatus({
   turn,
   tab,
   welcomed,
+  drill,
 }: {
   engineStatus: string
   thinking: boolean
@@ -490,8 +502,12 @@ function headerStatus({
   turn: "w" | "b"
   tab: "jogo" | "configurar"
   welcomed: boolean
+  drill: { prompt: string; status: "waiting" | "solved" | "missed" } | null
 }): string {
   if (!welcomed) return "Uma pergunta de cada vez. O adversário espera."
+  if (drill?.status === "solved") return "Esse é o lance."
+  if (drill?.status === "missed") return "Ainda não."
+  if (drill && tab !== "configurar") return drill.prompt
   if (tab === "configurar") return "Escolha como jogar. O adversário espera."
   if (engineStatus === "booting") return "O motor está acordando."
   if (engineStatus === "error") return "O motor não carregou."

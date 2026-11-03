@@ -1,7 +1,9 @@
+import { openingTitle } from "@/lib/book"
+import { drillById } from "@/lib/drills"
 import type { Analysis } from "@/lib/engine-parse"
 import { START_FEN, replay, safeMove } from "@/lib/game"
 import { isBoardTheme, isPieceStyle, type BoardTheme, type PieceStyle, type Tab } from "@/lib/look"
-import { bookKey, sanPt, uciParts } from "@/lib/notation"
+import { bookKey, formatDrop, sanPt, uciParts } from "@/lib/notation"
 
 export type Color = "w" | "b"
 export type Mode = "partida" | "estudo"
@@ -22,6 +24,7 @@ export type Note = {
 export type Mark = {
   ply: number
   matched: boolean
+  drop: number | null
 }
 
 export type ArchivedGame = {
@@ -50,6 +53,7 @@ export type Session = {
   tab: Tab
   sound: boolean
   welcomed: boolean
+  drillId: string | null
   archive: ArchivedGame[]
 }
 
@@ -86,6 +90,7 @@ export function defaultSession(): Session {
     tab: "configurar",
     sound: true,
     welcomed: false,
+    drillId: null,
     archive: [],
   }
 }
@@ -112,22 +117,59 @@ export function loadSession(raw: string | null): Session | null {
       ...data,
       sans: data.sans.filter((san) => typeof san === "string"),
       notes: Array.isArray(data.notes) ? data.notes : [],
-      marks: Array.isArray(data.marks) ? data.marks : [],
-      archive: Array.isArray(data.archive) ? data.archive.slice(0, ARCHIVE_LIMIT) : [],
+      marks: readMarks(data.marks),
+      archive: Array.isArray(data.archive)
+        ? data.archive.slice(0, ARCHIVE_LIMIT).map((item) => {
+            const game = item as ArchivedGame
+            return { ...game, marks: readMarks(game?.marks) }
+          })
+        : [],
       boardTheme: isBoardTheme(data.boardTheme) ? data.boardTheme : base.boardTheme,
       pieceStyle: isPieceStyle(data.pieceStyle) ? data.pieceStyle : base.pieceStyle,
       tab: data.tab === "jogo" ? "jogo" : "configurar",
       sound: data.sound !== false,
       welcomed: data.welcomed === true,
+      drillId: drillById(data.drillId) ? data.drillId! : null,
     }
   } catch {
     return null
   }
 }
 
-export function sessionLabel(session: Pick<Session, "sans">, savedAt = Date.now()): string {
+export function sessionLabel(session: Pick<Session, "sans" | "startFen">, savedAt = Date.now()): string {
   const when = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(savedAt)
+  const opening = session.startFen === START_FEN ? openingTitle(session.sans) : null
+  if (opening) return `${opening} · ${when}`
   return `${session.sans.length} lances · ${when}`
+}
+
+export function largestDrop(marks: Mark[], sans: string[]): { ply: number; san: string; drop: number } | null {
+  let worst: { ply: number; san: string; drop: number } | null = null
+  for (const mark of marks) {
+    if (mark.drop == null || mark.drop < 20) continue
+    const san = sans[mark.ply - 1]
+    if (!san) continue
+    if (!worst || mark.drop > worst.drop) worst = { ply: mark.ply, san, drop: mark.drop }
+  }
+  return worst
+}
+
+export function dropLine(marks: Mark[], sans: string[]): string | null {
+  const worst = largestDrop(marks, sans)
+  if (!worst) return null
+  const n = Math.ceil(worst.ply / 2)
+  return `A avaliação caiu mais no lance ${n}, ${sanPt(worst.san)}, ${formatDrop(worst.drop)} peões.`
+}
+
+function readMarks(value: unknown): Mark[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const mark = item as Partial<Mark>
+    if (typeof mark.ply !== "number" || typeof mark.matched !== "boolean") return []
+    const drop = typeof mark.drop === "number" && Number.isFinite(mark.drop) ? mark.drop : null
+    return [{ ply: mark.ply, matched: mark.matched, drop }]
+  })
 }
 
 export function pushArchive(session: Session, savedAt = Date.now()): ArchivedGame[] {
@@ -152,6 +194,7 @@ export function freshPosition(session: Session, patch: Partial<Session> = {}): S
     sans: [],
     notes: [],
     marks: [],
+    drillId: null,
     archive: pushArchive(session),
     ...patch,
   }
