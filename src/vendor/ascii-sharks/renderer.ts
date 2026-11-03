@@ -765,7 +765,7 @@ export class AsciiRenderer {
     const { wave, waveOld, waveNext, waveCols, waveRows, waveStep, waveSources } = this;
     if (waveCols === 0) return;
     const c2 = 0.48;
-    const damp = 0.994;
+    const damp = 0.986;
     for (let r = 1; r < waveRows - 1; r++) {
       const row = r * waveCols;
       for (let c = 1; c < waveCols - 1; c++) {
@@ -781,9 +781,9 @@ export class AsciiRenderer {
     const live: { x: number; y: number; age: number }[] = [];
     for (const source of waveSources) {
       source.age += dt;
-      if (source.age > 0.7) continue;
+      if (source.age > 0.45) continue;
       live.push(source);
-      const drive = Math.sin(source.age * 26) * Math.exp(-source.age * 2.4) * 0.62;
+      const drive = Math.sin(source.age * 22) * Math.exp(-source.age * 4.2) * 0.22;
       const c0 = Math.round(source.x / waveStep);
       const r0 = Math.round(source.y / waveStep);
       for (let r = r0 - 1; r <= r0 + 1; r++) {
@@ -804,10 +804,10 @@ export class AsciiRenderer {
       const row = r * waveCols;
       for (let c = 1; c < waveCols - 1; c++) {
         const h = wave[row + c];
-        if (h < 0.02) continue;
-        const tone = Math.min(1, h / 0.22);
+        if (h < 0.045) continue;
+        const tone = Math.min(1, h / 0.35);
         if (tone < BAYER[(r & 3) * 4 + (c & 3)] / 16) continue;
-        ctx.globalAlpha = 0.16 + tone * 0.38;
+        ctx.globalAlpha = 0.07 + tone * 0.12;
         ctx.fillRect(c * waveStep, r * waveStep, 1, 1);
       }
     }
