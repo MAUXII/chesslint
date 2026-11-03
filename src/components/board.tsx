@@ -4,10 +4,8 @@ import { useRef, useState } from "react"
 
 import { PieceArt } from "@/components/pieces"
 import type { Placement } from "@/lib/game"
+import { BOARD_THEMES, type BoardTheme, type PieceStyle } from "@/lib/look"
 import type { Color } from "@/lib/session"
-
-const LIGHT = "#e4e0d8"
-const DARK = "#6f6a62"
 
 const PIECE_NAME: Record<string, string> = {
   p: "peão",
@@ -43,6 +41,8 @@ export function Board({
   checkSquare,
   arrow,
   turn,
+  theme,
+  pieceStyle,
   onSquare,
   onDragStart,
   onDrop,
@@ -55,6 +55,8 @@ export function Board({
   checkSquare: string | null
   arrow: Arrow | null
   turn: Color | null
+  theme: BoardTheme
+  pieceStyle: PieceStyle
   onSquare: (square: string) => void
   onDragStart: (square: string) => void
   onDrop: (from: string, to: string) => void
@@ -76,6 +78,7 @@ export function Board({
     }
   }
   const ordered = orientation === "w" ? squares : [...squares].reverse()
+  const colors = BOARD_THEMES[theme]
 
   return (
     <div
@@ -86,6 +89,8 @@ export function Board({
       <div className="grid h-full w-full grid-cols-8 grid-rows-8 overflow-hidden" style={{ borderRadius: 6 }}>
         {ordered.map((square) => {
           const light = isLight(square)
+          const tone = light ? colors.light : colors.dark
+          const ink = inkOn(tone)
           const marked = lastMove?.from === square || lastMove?.to === square
           const dest = destinations.find((item) => item.to === square)
           const showFile = orientation === "w" ? square[1] === "1" : square[1] === "8"
@@ -98,7 +103,7 @@ export function Board({
               aria-label={square}
               onClick={() => onSquare(square)}
               className="relative"
-              style={{ background: light ? LIGHT : DARK }}
+              style={{ background: tone }}
             >
               {marked && <span className="absolute inset-0" style={{ background: "rgba(72, 54, 24, 0.18)" }} />}
               {selected === square && (
@@ -112,17 +117,17 @@ export function Board({
                   {dest.capture ? (
                     <span
                       className="size-[78%] rounded-full"
-                      style={{ boxShadow: "inset 0 0 0 3px rgba(28, 28, 28, 0.38)" }}
+                      style={{ boxShadow: `inset 0 0 0 3px ${ink}` }}
                     />
                   ) : (
-                    <span className="size-[22%] rounded-full" style={{ background: "rgba(28, 28, 28, 0.38)" }} />
+                    <span className="size-[22%] rounded-full" style={{ background: ink }} />
                   )}
                 </span>
               )}
               {showRank && (
                 <span
                   className="pointer-events-none absolute top-0.5 left-1 text-[10px] leading-none"
-                  style={{ color: light ? "rgba(40, 36, 32, 0.55)" : "rgba(244, 241, 234, 0.62)" }}
+                  style={{ color: ink }}
                 >
                   {square[1]}
                 </span>
@@ -130,7 +135,7 @@ export function Board({
               {showFile && (
                 <span
                   className="pointer-events-none absolute right-1 bottom-0.5 text-[10px] leading-none"
-                  style={{ color: light ? "rgba(40, 36, 32, 0.55)" : "rgba(244, 241, 234, 0.62)" }}
+                  style={{ color: ink }}
                 >
                   {square[0]}
                 </span>
@@ -198,7 +203,7 @@ export function Board({
             }}
           >
             <div className="h-full w-full p-[8%]">
-              <PieceArt type={piece.type} color={piece.color} />
+              <PieceArt type={piece.type} color={piece.color} pieceStyle={pieceStyle} />
             </div>
             <span className="sr-only">
               {piece.color === "w" ? "branco" : "preto"} {PIECE_NAME[piece.type]} em {piece.square}
@@ -242,6 +247,15 @@ function ArrowLayer({ arrow, orientation }: { arrow: Arrow; orientation: Color }
       <polygon points={`${end.x},${end.y} ${left.x},${left.y} ${right.x},${right.y}`} fill="#2a2622" stroke="#f7f4ee" strokeWidth="0.04" />
     </svg>
   )
+}
+
+function inkOn(hex: string): string {
+  const n = Number.parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+  return luminance > 0.55 ? "rgba(28, 28, 28, 0.5)" : "rgba(244, 241, 234, 0.62)"
 }
 
 function isLight(square: string): boolean {

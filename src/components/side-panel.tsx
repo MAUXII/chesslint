@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
+import { PieceArt } from "@/components/pieces"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { BOARD_THEMES, PIECE_STYLES, type BoardTheme, type PieceStyle } from "@/lib/look"
 import { sanPt } from "@/lib/notation"
 import {
   TAGS,
@@ -18,10 +20,33 @@ import {
   type NoteTag,
   type Session,
   type Strength,
+  type Tab,
 } from "@/lib/session"
 
 const choiceClass =
   "flex-1 rounded-[6px] data-[state=on]:bg-foreground data-[state=on]:text-background"
+
+const ASSIST: Record<Assistance, string> = {
+  livre: "Nenhuma seta. Depois do seu lance, uma linha diz o que você jogou e o que o motor preferia, em peões.",
+  melhor: "Seta contínua no lance do motor, com a avaliação e três lances da linha.",
+  humano: "Seta tracejada no lance natural. Na abertura vem de um livro. Fora dele, é o lance mais ordinário perto do melhor.",
+}
+
+const MODES: Record<Mode, string> = {
+  partida: "Você joga a sua cor. O motor responde.",
+  estudo: "Você mexe os dois lados, para olhar uma linha com calma.",
+}
+
+const COLORS: Record<Color, string> = {
+  w: "Você começa, se for uma partida. As brancas ficam embaixo.",
+  b: "As pretas ficam embaixo. Numa partida, o motor começa.",
+}
+
+const STRENGTHS: Record<Strength, string> = {
+  iniciante: "Erra mais. Bom para jogar sem pressão.",
+  clube: "Responde como um jogador de clube.",
+  forte: "Calcula mais e erra menos.",
+}
 
 export function SidePanel({
   session,
@@ -41,6 +66,9 @@ export function SidePanel({
   onAssistance,
   onStrength,
   onReview,
+  onBoard,
+  onPieces,
+  onTab,
   onUndo,
   onNew,
   onCopy,
@@ -69,6 +97,9 @@ export function SidePanel({
   onAssistance: (assistance: Assistance) => void
   onStrength: (strength: Strength) => void
   onReview: (review: boolean) => void
+  onBoard: (board: BoardTheme) => void
+  onPieces: (pieces: PieceStyle) => void
+  onTab: (tab: Tab) => void
   onUndo: () => void
   onNew: () => void
   onCopy: () => void
@@ -80,13 +111,338 @@ export function SidePanel({
   onOpenArchive: (id: string) => void
   onLoadFen: (fen: string) => string | null
 }) {
+  return (
+    <aside className="flex w-full flex-col gap-3 rounded-[6px] border border-border bg-card p-3 lg:max-h-[calc(100dvh-7.5rem)] lg:w-[320px] lg:shrink-0 lg:overflow-y-auto">
+      {session.tab === "configurar" ? (
+        <Config
+          session={session}
+          onPlayer={onPlayer}
+          onMode={onMode}
+          onAssistance={onAssistance}
+          onStrength={onStrength}
+          onReview={onReview}
+          onBoard={onBoard}
+          onPieces={onPieces}
+          onTab={onTab}
+          onOpenArchive={onOpenArchive}
+          onLoadFen={onLoadFen}
+        />
+      ) : (
+        <Game
+          session={session}
+          atLive={atLive}
+          viewPly={viewPly}
+          result={result}
+          attempts={attempts}
+          matches={matches}
+          reviewText={reviewText}
+          pv={pv}
+          evalText={evalText}
+          human={human}
+          showEngine={showEngine}
+          onToggleEngine={onToggleEngine}
+          onReview={onReview}
+          onUndo={onUndo}
+          onNew={onNew}
+          onCopy={onCopy}
+          copied={copied}
+          onView={onView}
+          onBack={onBack}
+          onSaveNote={onSaveNote}
+          onDeleteNote={onDeleteNote}
+        />
+      )}
+    </aside>
+  )
+}
+
+function Config({
+  session,
+  onPlayer,
+  onMode,
+  onAssistance,
+  onStrength,
+  onReview,
+  onBoard,
+  onPieces,
+  onTab,
+  onOpenArchive,
+  onLoadFen,
+}: {
+  session: Session
+  onPlayer: (player: Color) => void
+  onMode: (mode: Mode) => void
+  onAssistance: (assistance: Assistance) => void
+  onStrength: (strength: Strength) => void
+  onReview: (review: boolean) => void
+  onBoard: (board: BoardTheme) => void
+  onPieces: (pieces: PieceStyle) => void
+  onTab: (tab: Tab) => void
+  onOpenArchive: (id: string) => void
+  onLoadFen: (fen: string) => string | null
+}) {
   const [fen, setFen] = useState("")
   const [fenError, setFenError] = useState<string | null>(null)
-  const notePly = !atLive && viewPly ? viewPly : session.sans.length
-  const noteSan = notePly > 0 ? session.sans[notePly - 1] : null
 
   return (
-    <aside className="flex w-full flex-col gap-3 rounded-[6px] border border-border bg-card p-3 lg:w-[280px] lg:shrink-0">
+    <>
+      <div className="space-y-1.5">
+        <h2 className="text-[15px] font-medium tracking-tight">Configurar</h2>
+        <p className="text-[13px] leading-5 text-muted-foreground">
+          O tabuleiro é a partida. A barra fina ao lado dele é a avaliação, das brancas para cima. Aqui você escolhe
+          como jogar e como o tabuleiro aparece. A seta, se você pedir uma ajuda, já aparece. O adversário só responde
+          em Jogo.
+        </p>
+      </div>
+      <Button className="w-full" onClick={() => onTab("jogo")}>
+        Ir para o jogo
+      </Button>
+
+      <Field title="Tabuleiro" hint="A cor das casas. As peças continuam nas duas tintas.">
+        <div className="grid grid-cols-2 gap-1.5">
+          {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((id) => {
+            const theme = BOARD_THEMES[id]
+            const selected = session.boardTheme === id
+            return (
+              <button
+                key={id}
+                type="button"
+                data-look=""
+                aria-pressed={selected}
+                onClick={() => onBoard(id)}
+                className="rounded-[6px] border border-border p-1.5 text-left"
+              >
+                <BoardSwatch light={theme.light} dark={theme.dark} />
+                <span className="mt-1 block text-[13px]">{theme.label}</span>
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-[13px] leading-5">{BOARD_THEMES[session.boardTheme].hint}</p>
+      </Field>
+
+      <Field title="Peças" hint="O desenho, nas duas cores.">
+        <div className="space-y-1.5">
+          {(Object.keys(PIECE_STYLES) as PieceStyle[]).map((id) => {
+            const style = PIECE_STYLES[id]
+            const selected = session.pieceStyle === id
+            return (
+              <button
+                key={id}
+                type="button"
+                data-look=""
+                aria-pressed={selected}
+                onClick={() => onPieces(id)}
+                className="flex w-full items-center gap-2 rounded-[6px] border border-border p-1.5 text-left"
+              >
+                <PieceSwatch style={id} theme={session.boardTheme} />
+                <span className="min-w-0">
+                  <span className="block text-[13px]">{style.label}</span>
+                  <span className="block text-[12px] leading-4 text-muted-foreground">{style.hint}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+
+      <Field title="Sua cor" hint="O tabuleiro gira com a cor. Se a partida já andou, trocar começa outra.">
+        <Choice
+          label="Cor"
+          value={session.player}
+          onChange={onPlayer}
+          options={[
+            { value: "w", label: "Brancas" },
+            { value: "b", label: "Pretas" },
+          ]}
+        />
+        <p className="text-[13px] leading-5">{COLORS[session.player]}</p>
+      </Field>
+
+      <Field title="O que você está fazendo" hint="Partida é contra o motor. Estudo é para os dois lados.">
+        <Choice
+          label="Modo"
+          value={session.mode}
+          onChange={onMode}
+          options={[
+            { value: "partida", label: "Partida" },
+            { value: "estudo", label: "Estudo" },
+          ]}
+        />
+        <p className="text-[13px] leading-5">{MODES[session.mode]}</p>
+      </Field>
+
+      <Field title="Ajuda no lance" hint="O que o tabuleiro mostra na sua vez.">
+        <Choice
+          label="Assistência"
+          value={session.assistance}
+          onChange={onAssistance}
+          options={[
+            { value: "livre", label: "Livre" },
+            { value: "melhor", label: "Melhor" },
+            { value: "humano", label: "Humano" },
+          ]}
+        />
+        <p className="text-[13px] leading-5">{ASSIST[session.assistance]}</p>
+      </Field>
+
+      {session.assistance === "livre" && (
+        <Field title="Linha depois do lance" hint="Dá para calar. A contagem de coincidência continua.">
+          <Choice
+            label="Revisão"
+            value={session.review ? "sim" : "nao"}
+            onChange={(value) => onReview(value === "sim")}
+            options={[
+              { value: "sim", label: "Mostrar" },
+              { value: "nao", label: "Calar" },
+            ]}
+          />
+        </Field>
+      )}
+
+      {session.mode === "partida" ? (
+        <Field title="Força do adversário" hint="Muda a resposta dele. A sugestão, quando você pede, continua no máximo.">
+          <Choice
+            label="Força"
+            value={session.strength}
+            onChange={onStrength}
+            options={[
+              { value: "iniciante", label: "Iniciante" },
+              { value: "clube", label: "Clube" },
+              { value: "forte", label: "Forte" },
+            ]}
+          />
+          <p className="text-[13px] leading-5">{STRENGTHS[session.strength]}</p>
+        </Field>
+      ) : (
+        <p className="text-[13px] leading-5 text-muted-foreground">
+          No estudo não há adversário. A força volta quando o modo for partida.
+        </p>
+      )}
+
+      <Separator />
+
+      <Field title="Abrir uma posição" hint="Cole uma FEN. Se ela não abrir, a partida atual fica onde está.">
+        <form
+          className="space-y-1.5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const error = onLoadFen(fen)
+            setFenError(error)
+            if (!error) {
+              setFen("")
+              onTab("jogo")
+            }
+          }}
+        >
+          <Input
+            value={fen}
+            onChange={(event) => {
+              setFen(event.target.value)
+              setFenError(null)
+            }}
+            placeholder="Cole uma FEN"
+            aria-label="Cole uma FEN"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <Button type="submit" variant="outline" size="sm" disabled={fen.trim().length === 0}>
+              Abrir
+            </Button>
+            {fenError && <p className="text-[13px] text-muted-foreground">{fenError}</p>}
+          </div>
+        </form>
+      </Field>
+
+      {session.archive.length > 0 && (
+        <Field title="Partidas anteriores" hint="Abrir uma guarda a partida que está na tela.">
+          <ul className="space-y-1">
+            {session.archive.map((game) => (
+              <li key={game.id}>
+                <button
+                  type="button"
+                  className="text-left text-[13px] text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    onOpenArchive(game.id)
+                    onTab("jogo")
+                  }}
+                >
+                  {game.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Field>
+      )}
+    </>
+  )
+}
+
+function Game({
+  session,
+  atLive,
+  viewPly,
+  result,
+  attempts,
+  matches,
+  reviewText,
+  pv,
+  evalText,
+  human,
+  showEngine,
+  onToggleEngine,
+  onReview,
+  onUndo,
+  onNew,
+  onCopy,
+  copied,
+  onView,
+  onBack,
+  onSaveNote,
+  onDeleteNote,
+}: {
+  session: Session
+  atLive: boolean
+  viewPly: number | null
+  result: string | null
+  attempts: number
+  matches: number
+  reviewText: string | null
+  pv: string | null
+  evalText: string
+  human: { coincides: boolean | null; engineSan: string | null } | null
+  showEngine: boolean
+  onToggleEngine: () => void
+  onReview: (review: boolean) => void
+  onUndo: () => void
+  onNew: () => void
+  onCopy: () => void
+  copied: boolean
+  onView: (ply: number) => void
+  onBack: () => void
+  onSaveNote: (note: Note) => void
+  onDeleteNote: (ply: number) => void
+}) {
+  const notePly = !atLive && viewPly ? viewPly : session.sans.length
+  const noteSan = notePly > 0 ? session.sans[notePly - 1] : null
+  const playing = situation(session)
+
+  return (
+    <>
+      <div className="space-y-1">
+        <h2 className="text-[15px] font-medium tracking-tight">{playing.title}</h2>
+        <p className="text-[13px] leading-5 text-muted-foreground">{playing.body}</p>
+      </div>
+
+      {session.sans.length === 0 && atLive && !result && (
+        <p className="text-[13px] leading-5">
+          {session.mode === "estudo"
+            ? "Toque uma peça e depois a casa, ou arraste. Vale para os dois lados."
+            : session.player === "w"
+              ? "Toque uma peça branca e depois a casa, ou arraste."
+              : "As pretas estão embaixo. Espere o motor, e depois jogue do mesmo jeito."}
+        </p>
+      )}
+
       {result && atLive && (
         <div className="space-y-1 text-[13px] leading-5">
           <p>{result}</p>
@@ -103,49 +459,8 @@ export function SidePanel({
         </p>
       )}
 
-      <Choice
-        label="Cor"
-        value={session.player}
-        onChange={onPlayer}
-        options={[
-          { value: "w", label: "Brancas" },
-          { value: "b", label: "Pretas" },
-        ]}
-      />
-      <Choice
-        label="Modo"
-        value={session.mode}
-        onChange={onMode}
-        options={[
-          { value: "partida", label: "Partida" },
-          { value: "estudo", label: "Estudo" },
-        ]}
-      />
-      <Choice
-        label="Assistência"
-        value={session.assistance}
-        onChange={onAssistance}
-        options={[
-          { value: "livre", label: "Livre" },
-          { value: "melhor", label: "Melhor" },
-          { value: "humano", label: "Humano" },
-        ]}
-      />
-      {session.mode === "partida" && (
-        <Choice
-          label="Força"
-          value={session.strength}
-          onChange={onStrength}
-          options={[
-            { value: "iniciante", label: "Iniciante" },
-            { value: "clube", label: "Clube" },
-            { value: "forte", label: "Forte" },
-          ]}
-        />
-      )}
-
       <div className="space-y-1 text-[13px] leading-5">
-        <p className="tabular-nums text-muted-foreground">{evalText}</p>
+        <p className="tabular-nums text-muted-foreground">Avaliação {evalText}</p>
         {session.assistance === "livre" && reviewText && <p>{reviewText}</p>}
         {session.assistance === "livre" && (
           <button
@@ -156,7 +471,7 @@ export function SidePanel({
             {session.review ? "Calar a revisão" : "Rever o lance"}
           </button>
         )}
-        {session.assistance === "melhor" && pv && <p>{pv}</p>}
+        {session.assistance === "melhor" && pv && <p>Linha {pv}</p>}
         {session.assistance === "humano" && human?.coincides === true && (
           <p>O lance natural coincide com o do motor.</p>
         )}
@@ -179,7 +494,7 @@ export function SidePanel({
           Desfazer
         </Button>
         <Button variant="outline" size="sm" onClick={onNew}>
-          Nova
+          Nova partida
         </Button>
         <Button variant="outline" size="sm" onClick={onCopy} disabled={session.sans.length === 0}>
           {copied ? "Copiado" : "Copiar PGN"}
@@ -229,6 +544,9 @@ export function SidePanel({
 
       <div className="space-y-2">
         <p className="text-[13px] text-muted-foreground">Caderno</p>
+        <p className="text-[13px] leading-5 text-muted-foreground">
+          Uma nota curta no lance que acabou de acontecer. Fica neste navegador.
+        </p>
         {session.notes.length === 0 && (
           <p className="text-[13px] leading-5 text-muted-foreground">
             Nada anotado. Depois de um lance, escreva o que ficou.
@@ -266,57 +584,68 @@ export function SidePanel({
           />
         )}
       </div>
+    </>
+  )
+}
 
-      {session.archive.length > 0 && (
-        <>
-          <Separator />
-          <div>
-            <p className="mb-1.5 text-[13px] text-muted-foreground">Anteriores</p>
-            <ul className="space-y-1">
-              {session.archive.map((game) => (
-                <li key={game.id}>
-                  <button
-                    type="button"
-                    className="text-left text-[13px] text-muted-foreground hover:text-foreground"
-                    onClick={() => onOpenArchive(game.id)}
-                  >
-                    {game.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+function situation(session: Session): { title: string; body: string } {
+  const color = session.player === "w" ? "brancas" : "pretas"
+  if (session.mode === "estudo") {
+    return {
+      title: "Estudo",
+      body: `Os dois lados são seus. ${ASSIST[session.assistance]}`,
+    }
+  }
+  const force = { iniciante: "iniciante", clube: "de clube", forte: "forte" }[session.strength]
+  return {
+    title: `Partida de ${color}`,
+    body: `Adversário ${force}. ${ASSIST[session.assistance]}`,
+  }
+}
 
-      <Separator />
+function Field({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+  return (
+    <section className="space-y-1.5">
+      <div>
+        <h3 className="text-[13px] font-medium">{title}</h3>
+        <p className="text-[13px] leading-5 text-muted-foreground">{hint}</p>
+      </div>
+      {children}
+    </section>
+  )
+}
 
-      <form
-        className="space-y-1.5"
-        onSubmit={(event) => {
-          event.preventDefault()
-          const error = onLoadFen(fen)
-          setFenError(error)
-          if (!error) setFen("")
-        }}
-      >
-        <Input
-          value={fen}
-          onChange={(event) => {
-            setFen(event.target.value)
-            setFenError(null)
-          }}
-          placeholder="Cole uma FEN"
-          aria-label="Cole uma FEN"
-        />
-        <div className="flex items-center justify-between gap-2">
-          <Button type="submit" variant="outline" size="sm" disabled={fen.trim().length === 0}>
-            Abrir
-          </Button>
-          {fenError && <p className="text-[13px] text-muted-foreground">{fenError}</p>}
-        </div>
-      </form>
-    </aside>
+function BoardSwatch({ light, dark }: { light: string; dark: string }) {
+  const cells = []
+  for (let index = 0; index < 16; index += 1) {
+    const file = index % 4
+    const rank = Math.floor(index / 4)
+    cells.push((file + rank) % 2 === 0 ? dark : light)
+  }
+  return (
+    <span className="grid grid-cols-4 overflow-hidden rounded-[4px]" aria-hidden>
+      {cells.map((color, index) => (
+        <span key={index} className="aspect-square" style={{ background: color }} />
+      ))}
+    </span>
+  )
+}
+
+function PieceSwatch({ style, theme }: { style: PieceStyle; theme: BoardTheme }) {
+  const colors = BOARD_THEMES[theme]
+  return (
+    <span className="flex h-11 w-16 shrink-0 overflow-hidden rounded-[4px]" aria-hidden>
+      <span className="flex flex-1 items-center justify-center" style={{ background: colors.light }}>
+        <span className="size-8">
+          <PieceArt type="n" color="w" pieceStyle={style} />
+        </span>
+      </span>
+      <span className="flex flex-1 items-center justify-center" style={{ background: colors.dark }}>
+        <span className="size-8">
+          <PieceArt type="n" color="b" pieceStyle={style} />
+        </span>
+      </span>
+    </span>
   )
 }
 
@@ -402,26 +731,24 @@ function Choice<T extends string>({
   onChange: (value: T) => void
 }) {
   return (
-    <div>
-      <p className="mb-1.5 text-[13px] text-muted-foreground">{label}</p>
-      <ToggleGroup
-        value={[value]}
-        onValueChange={(values) => {
-          const picked = values.find((item) => item !== value) ?? values[0]
-          if (picked) onChange(picked as T)
-        }}
-        variant="outline"
-        size="sm"
-        spacing={1}
-        className="w-full"
-      >
-        {options.map((option) => (
-          <ToggleGroupItem key={option.value} value={option.value} className={choiceClass}>
-            {option.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-    </div>
+    <ToggleGroup
+      value={[value]}
+      onValueChange={(values) => {
+        const picked = values.find((item) => item !== value) ?? values[0]
+        if (picked) onChange(picked as T)
+      }}
+      variant="outline"
+      size="sm"
+      spacing={1}
+      className="w-full"
+      aria-label={label}
+    >
+      {options.map((option) => (
+        <ToggleGroupItem key={option.value} value={option.value} className={choiceClass}>
+          {option.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }
 

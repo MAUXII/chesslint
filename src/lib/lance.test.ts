@@ -7,7 +7,7 @@ import { resolveHuman, plyOf } from "@/lib/human"
 import { pickNatural, scoreNatural } from "@/lib/natural"
 import { formatCp, sanPt } from "@/lib/notation"
 import { reducer, initialState } from "@/lib/reducer"
-import { fenBefore } from "@/lib/session"
+import { fenBefore, loadSession } from "@/lib/session"
 
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -110,6 +110,23 @@ describe("partida", () => {
     state = reducer(state, { type: "user-move", san: "e5" })
     state = reducer(state, { type: "undo" })
     expect(state.session.sans).toEqual(["e4"])
+  })
+
+  it("abre a configuração e guarda o visual sem apagar lances", () => {
+    const loaded = loadSession(JSON.stringify({ startFen: START, sans: ["e4"], boardTheme: "neon" }))
+    expect(loaded?.tab).toBe("configurar")
+    expect(loaded?.boardTheme).toBe("pedra")
+    expect(loaded?.pieceStyle).toBe("classico")
+    expect(loaded?.sans).toEqual(["e4"])
+
+    let state = reducer(initialState, { type: "user-move", san: "e4" })
+    state = reducer(state, { type: "set-board", board: "verde" })
+    state = reducer(state, { type: "set-pieces", pieces: "traco" })
+    state = reducer(state, { type: "set-tab", tab: "jogo" })
+    expect(state.session.sans).toEqual(["e4"])
+    expect(state.session.boardTheme).toBe("verde")
+    expect(state.session.pieceStyle).toBe("traco")
+    expect(state.session.tab).toBe("jogo")
   })
 
   it("guarda a nota na FEN do lance", () => {

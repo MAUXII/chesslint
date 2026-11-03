@@ -13,6 +13,9 @@ import {
   type Mode,
   type Assistance,
   type Strength,
+  type BoardTheme,
+  type PieceStyle,
+  type Tab,
 } from "@/lib/session"
 
 export type Review = {
@@ -50,6 +53,9 @@ export type Action =
   | { type: "set-assistance"; assistance: Assistance }
   | { type: "set-strength"; strength: Strength }
   | { type: "set-review"; review: boolean }
+  | { type: "set-board"; board: BoardTheme }
+  | { type: "set-pieces"; pieces: PieceStyle }
+  | { type: "set-tab"; tab: Tab }
   | { type: "view-ply"; ply: number }
   | { type: "load-fen"; fen: string }
   | { type: "save-note"; note: Note }
@@ -102,6 +108,12 @@ export function reducer(state: State, action: Action): State {
       return { ...state, session: { ...state.session, strength: action.strength } }
     case "set-review":
       return { ...state, session: { ...state.session, review: action.review } }
+    case "set-board":
+      return { ...state, session: { ...state.session, boardTheme: action.board } }
+    case "set-pieces":
+      return { ...state, session: { ...state.session, pieceStyle: action.pieces } }
+    case "set-tab":
+      return { ...state, session: { ...state.session, tab: action.tab } }
     case "view-ply":
       if (action.ply >= state.session.sans.length) return { ...state, viewPly: null }
       return { ...state, viewPly: action.ply }

@@ -7,6 +7,7 @@ import { EvalBar } from "@/components/eval-bar"
 import { PieceArt } from "@/components/pieces"
 import { SidePanel } from "@/components/side-panel"
 import { Button } from "@/components/ui/button"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Dialog,
   DialogContent,
@@ -111,7 +112,14 @@ export function LanceScreen() {
       return
     }
     let cancelled = false
-    if (playerTurn) {
+    if (session.tab === "configurar") {
+      dispatch({ type: "thinking", thinking: false })
+      if (playerTurn) {
+        engine.analyze(liveFen).then((analysis) => {
+          if (!cancelled && analysis) dispatch({ type: "analysis", analysis })
+        })
+      }
+    } else if (playerTurn) {
       dispatch({ type: "thinking", thinking: false })
       engine.analyze(liveFen).then((analysis) => {
         if (!cancelled && analysis) dispatch({ type: "analysis", analysis })
@@ -134,14 +142,20 @@ export function LanceScreen() {
     playerTurn,
     liveFen,
     session.strength,
+    session.tab,
   ])
 
   const history = shown.history({ verbose: true })
   const last = history[history.length - 1]
   const counts = tally(session.marks)
   const result = resultText(live)
+  const onConfig = session.tab === "configurar"
   const canPlay =
-    atLive && !gameOver && !state.thinking && (session.mode === "estudo" || live.turn() === session.player)
+    !onConfig &&
+    atLive &&
+    !gameOver &&
+    !state.thinking &&
+    (session.mode === "estudo" || live.turn() === session.player)
   const turn = canPlay ? shown.turn() : null
   const legals =
     selected && canPlay
@@ -211,9 +225,30 @@ export function LanceScreen() {
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-[900px] flex-col px-4 py-5 sm:py-8">
-      <header className="mb-4 flex items-baseline justify-between gap-4">
-        <h1 className="text-[15px] font-medium tracking-tight">lance</h1>
-        <p className="text-right text-[13px] text-muted-foreground">
+      <header className="mb-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-[15px] font-medium tracking-tight">Lance</h1>
+          <ToggleGroup
+            value={[session.tab]}
+            onValueChange={(values) => {
+              const picked = values.find((item) => item !== session.tab) ?? values[0]
+              if (picked === "jogo" || picked === "configurar") dispatch({ type: "set-tab", tab: picked })
+            }}
+            variant="outline"
+            size="sm"
+            spacing={1}
+            className="w-[220px]"
+            aria-label="Seção"
+          >
+            <ToggleGroupItem value="jogo" className="flex-1 rounded-[6px]">
+              Jogo
+            </ToggleGroupItem>
+            <ToggleGroupItem value="configurar" className="flex-1 rounded-[6px]">
+              Configurar
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        <p className="text-[13px] text-muted-foreground">
           {headerStatus({
             engineStatus: state.engineStatus,
             thinking: state.thinking,
@@ -223,6 +258,7 @@ export function LanceScreen() {
             mode: session.mode,
             replyFailed: state.replyFailed,
             turn: live.turn(),
+            tab: session.tab,
           })}
         </p>
       </header>
@@ -239,6 +275,8 @@ export function LanceScreen() {
               checkSquare={shown.isCheck() ? squareOfKing(shown, shown.turn()) : null}
               arrow={arrow}
               turn={turn}
+              theme={session.boardTheme}
+              pieceStyle={session.pieceStyle}
               onSquare={onSquare}
               onDragStart={(square) => {
                 if (canPlay) setSelected(square)
@@ -269,6 +307,9 @@ export function LanceScreen() {
           onAssistance={(assistance) => dispatch({ type: "set-assistance", assistance })}
           onStrength={(strength) => dispatch({ type: "set-strength", strength })}
           onReview={(reviewOn) => dispatch({ type: "set-review", review: reviewOn })}
+          onBoard={(board) => dispatch({ type: "set-board", board })}
+          onPieces={(pieces) => dispatch({ type: "set-pieces", pieces })}
+          onTab={(tab) => dispatch({ type: "set-tab", tab })}
           onUndo={() => dispatch({ type: "undo" })}
           onNew={() => dispatch({ type: "new-game" })}
           onCopy={() => {
@@ -319,7 +360,7 @@ export function LanceScreen() {
                 }}
               >
                 <span className="size-8">
-                  <PieceArt type={piece.id} color={shown.turn()} />
+                  <PieceArt type={piece.id} color={shown.turn()} pieceStyle={session.pieceStyle} />
                 </span>
               </Button>
             ))}
@@ -379,6 +420,7 @@ function headerStatus({
   mode,
   replyFailed,
   turn,
+  tab,
 }: {
   engineStatus: string
   thinking: boolean
@@ -388,7 +430,9 @@ function headerStatus({
   mode: string
   replyFailed: boolean
   turn: "w" | "b"
+  tab: "jogo" | "configurar"
 }): string {
+  if (tab === "configurar") return "Escolha como jogar. O adversário espera."
   if (engineStatus === "booting") return "O motor está acordando."
   if (engineStatus === "error") return "O motor não carregou."
   if (replyFailed) return "O motor não respondeu."

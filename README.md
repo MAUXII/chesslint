@@ -1,6 +1,6 @@
 # Lance
 
-Um tabuleiro de xadrez de uma tela. Você escolhe a cor, joga contra o motor ou estuda a posição, e pede o melhor lance ou um lance natural. O que ficar de aprendizado vai para um caderno, no próprio lance.
+Um tabuleiro de xadrez de uma tela. A primeira visita abre em Configurar: cor, modo, ajuda, força, desenho do tabuleiro e desenho das peças, cada um com uma frase do que faz. Jogo é a partida e o caderno. A fonte é Geist.
 
 A especificação está em [specification.md](specification.md).
 

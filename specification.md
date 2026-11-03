@@ -8,7 +8,7 @@ O nome é curto de propósito. Lance é a jogada. Alternativas que não mudam o 
 
 O visual conversa com três projetos anteriores:
 
-- [Facultas](https://github.com/MAUXII/facultas) — fundo `#151618`, superfície `#1e1e20`, fio branco a 8%, DM Sans, coluna estreita. O Lance herda esse tom e esse container.
+- [Facultas](https://github.com/MAUXII/facultas) — fundo `#151618`, superfície `#1e1e20`, fio branco a 8%, coluna estreita. O Lance herda esse tom e esse container. A fonte é Geist, a da Vercel.
 - [Copia](https://github.com/MAUXII/copia) — shadcn/ui neutro, componentes que se comportam como ferramenta e não como cartaz.
 - [GeoSprint](https://github.com/MAUXII/geosprint) — uma sessão que termina com um número. Daqui vem só isso.
 
@@ -16,12 +16,21 @@ A coluna é a do Facultas, só o bastante mais larga para o tabuleiro e o cadern
 
 ## Uma tela
 
-A primeira vista já é o tabuleiro. As escolhas ficam na coluna da direita, no celular abaixo do tabuleiro.
+A primeira vista é o tabuleiro, com duas abas no topo: Jogo e Configurar. Quem ainda não escolheu a aba Jogo cai em Configurar, para ver o que cada coisa faz antes de a partida responder.
+
+O tabuleiro continua visível. A seta da ajuda, se estiver ligada, já aparece. O adversário não joga enquanto a aba for Configurar.
+
+Configurar explica, uma frase por escolha:
 
 - Cor: brancas ou pretas. O tabuleiro gira com a cor. Trocar a cor com lances já feitos abre outra partida.
 - Modo: Partida, em que o motor responde, ou Estudo, em que você mexe os dois lados.
-- Assistência: Livre, Melhor ou Humano.
+- Assistência: Livre, Melhor ou Humano. A frase debaixo do botão diz o que a escolha faz.
 - Força do adversário, só na partida: iniciante, clube, forte.
+- Tabuleiro: pedra, madeira, verde ou tinta.
+- Peças: clássico, cheio ou traço.
+- Uma FEN, e as partidas anteriores.
+
+Jogo é a partida em si: o que você está fazendo agora, a avaliação, os lances, desfazer, nova partida, copiar o PGN e o caderno. No celular a coluna fica abaixo do tabuleiro. As abas ficam no topo, nas duas larguras.
 
 A lista de lances fica na coluna. Clicar num lance mostra aquela posição e a nota dela. Um botão devolve ao presente. No passado, as peças não andam.
 
@@ -78,7 +87,7 @@ Coincidência. Cada lance seu, quando o motor já tinha uma sugestão para aquel
 
 Fundo `#151618`. Superfície `#1e1e20`. Texto branco, texto secundário `#888888`, fio `rgba(255, 255, 255, 0.08)`.
 
-Casas em pedra: clara `#e4e0d8`, escura `#6f6a62`. Peças SVG próprias, em duas tintas, creme e quase preto, com um fio da cor oposta para lerem nas duas casas. Casas sem raio. Moldura do tabuleiro, botões e campos com raio de 6px.
+O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde e tinta trocam só as casas. Peças SVG próprias, em duas tintas, creme e quase preto. Clássico leva um fio da cor oposta. Cheio é a mesma silhueta, só a massa. Traço é o contorno, com um halo da cor oposta para ler nas duas casas. Casas sem raio. Moldura do tabuleiro, botões e campos com raio de 6px.
 
 A barra de avaliação é fina, à esquerda do tabuleiro, preenchida de baixo para cima do ponto de vista das brancas. Avaliação em peões com vírgula (`+0,4`). Mate em n lances quando a linha é de mate.
 
@@ -86,13 +95,13 @@ O último lance fica com um véu quente. O lance legal vazio ganha um ponto; a c
 
 A peça desliza até a casa nova. Se o sistema pedir menos movimento, ela aparece direto.
 
-Tipografia: DM Sans.
+Tipografia: Geist.
 
 ## Dados
 
 Tudo fica no `localStorage` deste navegador, na chave `lance.session.v1`.
 
-A sessão guarda a FEN inicial, os lances, as notas, a cor, o modo, a assistência, a força, se a revisão está calada, e a contagem de coincidência. Atualizar a página continua a mesma partida.
+A sessão guarda a FEN inicial, os lances, as notas, a cor, o modo, a assistência, a força, se a revisão está calada, o desenho do tabuleiro, o desenho das peças, a aba aberta, e a contagem de coincidência. Atualizar a página continua a mesma partida. Uma sessão antiga, sem aba guardada, abre em Configurar.
 
 Nova partida arquiva a anterior, se houve lance ou nota, e fica com as doze últimas. A coluna lista essas partidas e reabre o PGN e as notas.
 
@@ -122,7 +131,8 @@ Puzzles e som. Não entram agora. O aprendizado desta versão é a nota no lance
 
 ## Critérios desta versão
 
-- A tela abre direto no tabuleiro, em desktop e em celular.
+- A tela abre no tabuleiro, em desktop e em celular, com Configurar na frente até a pessoa ir para Jogo.
+- Dá para trocar o desenho das casas e o desenho das peças, e a troca fica neste navegador.
 - Dá para jogar de brancas ou de pretas, contra o motor, e estudar andando com os dois lados.
 - Livre, Melhor e Humano se comportam como acima.
 - Uma nota sobrevive a atualizar a página e aparece de novo ao reabrir a partida arquivada.

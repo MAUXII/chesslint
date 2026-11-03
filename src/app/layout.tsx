@@ -1,13 +1,13 @@
 import type { Metadata } from "next"
-import { DM_Sans } from "next/font/google"
+import { Geist } from "next/font/google"
 
 import { cn } from "@/lib/utils"
 import "./globals.css"
 
-const dmSans = DM_Sans({
+const geist = Geist({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-dm",
+  weight: "variable",
+  variable: "--font-geist",
   display: "swap",
 })
 
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={cn("dark h-full antialiased", dmSans.variable)}>
+    <html lang="pt-BR" className={cn("dark h-full antialiased", geist.variable)}>
       <body className="min-h-full bg-background font-sans text-foreground antialiased">{children}</body>
     </html>
   )

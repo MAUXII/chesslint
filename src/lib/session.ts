@@ -1,5 +1,6 @@
 import type { Analysis } from "@/lib/engine-parse"
 import { START_FEN, replay, safeMove } from "@/lib/game"
+import { isBoardTheme, isPieceStyle, type BoardTheme, type PieceStyle, type Tab } from "@/lib/look"
 import { bookKey, sanPt, uciParts } from "@/lib/notation"
 
 export type Color = "w" | "b"
@@ -7,6 +8,8 @@ export type Mode = "partida" | "estudo"
 export type Assistance = "livre" | "melhor" | "humano"
 export type Strength = "iniciante" | "clube" | "forte"
 export type NoteTag = "ideia" | "erro" | "abertura" | "tatica" | "final"
+
+export type { BoardTheme, PieceStyle, Tab }
 
 export type Note = {
   ply: number
@@ -42,6 +45,9 @@ export type Session = {
   assistance: Assistance
   strength: Strength
   review: boolean
+  boardTheme: BoardTheme
+  pieceStyle: PieceStyle
+  tab: Tab
   archive: ArchivedGame[]
 }
 
@@ -73,6 +79,9 @@ export function defaultSession(): Session {
     assistance: "livre",
     strength: "clube",
     review: true,
+    boardTheme: "pedra",
+    pieceStyle: "classico",
+    tab: "configurar",
     archive: [],
   }
 }
@@ -101,6 +110,9 @@ export function loadSession(raw: string | null): Session | null {
       notes: Array.isArray(data.notes) ? data.notes : [],
       marks: Array.isArray(data.marks) ? data.marks : [],
       archive: Array.isArray(data.archive) ? data.archive.slice(0, ARCHIVE_LIMIT) : [],
+      boardTheme: isBoardTheme(data.boardTheme) ? data.boardTheme : base.boardTheme,
+      pieceStyle: isPieceStyle(data.pieceStyle) ? data.pieceStyle : base.pieceStyle,
+      tab: data.tab === "jogo" ? "jogo" : "configurar",
     }
   } catch {
     return null
