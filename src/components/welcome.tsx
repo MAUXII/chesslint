@@ -63,7 +63,7 @@ export function Welcome({ session, onDone }: { session: Session; onDone: (patch:
         aria-labelledby="welcome-title"
       >
         <p className="text-[12px] tracking-wide text-white/45">
-          Lance · {index + 1} de {order.length}
+          Chesslint · {index + 1} de {order.length}
         </p>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div

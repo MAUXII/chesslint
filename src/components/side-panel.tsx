@@ -1619,7 +1619,7 @@ function ReviewSummary({
         {result ?? "Partida em andamento"} · {session.sans.length} {session.sans.length === 1 ? "lance" : "lances"}
       </p>
       <p>
-        Precisão estimada do Lance: brancas {accuracy.w == null ? "—" : `${accuracy.w}%`}, pretas{" "}
+        Precisão estimada do Chesslint: brancas {accuracy.w == null ? "—" : `${accuracy.w}%`}, pretas{" "}
         {accuracy.b == null ? "—" : `${accuracy.b}%`}.
       </p>
       {listed.length > 0 && (

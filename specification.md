@@ -1,29 +1,29 @@
-# Lance
+# Chesslint
 
 Este arquivo é o documento do projeto até agora. O README só diz como rodar e aponta para cá.
 
-Lance é um tabuleiro de xadrez de uma tela. Você escolhe a cor, joga uma partida contra o motor ou estuda a posição dos dois lados, e pode pedir o melhor lance ou um lance natural. O que ficar de aprendizado vai para um caderno, no próprio lance.
+Chesslint é um tabuleiro de xadrez de uma tela. Você escolhe a cor, joga uma partida contra o motor ou estuda a posição dos dois lados, e pode pedir o melhor lance ou um lance natural. O que ficar de aprendizado vai para um caderno, no próprio lance.
 
-O nome é curto de propósito. Lance é a jogada. Alternativas que não mudam o produto: Casa, Ply.
+O nome junta o xadrez com o lint: a revisão marca o lance fraco e mostra o melhor, como um linter marca uma linha.
 
 ## De onde vem
 
 Três repositórios foram perguntados. Só um entra como código nosso. O motor entra por um build WASM. O terceiro não entra.
 
-- [chess.js](https://github.com/jhlywa/chess.js), de jhlywa. É dependência direta, pacote `chess.js`. Faz as regras, a FEN, o PGN e o lance legal. Um lance ilegal lança erro; o Lance captura isso. O PGN sai em inglês. A notação na tela é portuguesa (C, B, T, D, R), convertida em cima do SAN.
-- [Stockfish](https://github.com/mcostalba/Stockfish), de mcostalba e o projeto oficial. O Lance não compila esse C++. O pacote npm `stockfish` é o [stockfish.js](https://github.com/nmrugg/stockfish.js), GPL-3.0: um build WASM de uma thread do Stockfish 19. A instalação copia esse arquivo para `public/stockfish`. O app fala com o worker só por UCI. Não usa `SharedArrayBuffer`.
-- [code100x/chess](https://github.com/code100x/chess). Não entra. É uma plataforma de partidas online, com React, Node, websockets, Redis e Postgres. O Lance não importa arquivo nenhum de lá. Os dois projetos usam chess.js, cada um do seu lado.
-- [ascii-sharks](https://github.com/stackedlol/ascii-sharks), de drewdi, MIT. Entra no fundo da página. O código está em `src/vendor/ascii-sharks`, com a licença. O Lance usa o nado e o desenho do tubarão. O clique continua no tabuleiro.
+- [chess.js](https://github.com/jhlywa/chess.js), de jhlywa. É dependência direta, pacote `chess.js`. Faz as regras, a FEN, o PGN e o lance legal. Um lance ilegal lança erro; o Chesslint captura isso. O PGN sai em inglês. A notação na tela é portuguesa (C, B, T, D, R), convertida em cima do SAN.
+- [Stockfish](https://github.com/mcostalba/Stockfish), de mcostalba e o projeto oficial. O Chesslint não compila esse C++. O pacote npm `stockfish` é o [stockfish.js](https://github.com/nmrugg/stockfish.js), GPL-3.0: um build WASM de uma thread do Stockfish 19. A instalação copia esse arquivo para `public/stockfish`. O app fala com o worker só por UCI. Não usa `SharedArrayBuffer`.
+- [code100x/chess](https://github.com/code100x/chess). Não entra. É uma plataforma de partidas online, com React, Node, websockets, Redis e Postgres. O Chesslint não importa arquivo nenhum de lá. Os dois projetos usam chess.js, cada um do seu lado.
+- [ascii-sharks](https://github.com/stackedlol/ascii-sharks), de drewdi, MIT. Entra no fundo da página. O código está em `src/vendor/ascii-sharks`, com a licença. O Chesslint usa o nado e o desenho do tubarão. O clique continua no tabuleiro.
 
 O desenho das peças vem de outros repositórios, com licença, listados em `public/pieces/NOTICE.md`: o clássico de Colin M.L. Burnett (GPL-2.0 ou posterior, o conjunto padrão do Lichess), Celtic (Maurizio Monge, MIT) e Chessnut (Alexis Luengas, Apache 2.0). Os arquivos do Chess.com e os modelos do Discord Chess in the Park não foram copiados.
 
-O som é o [snd.dev](https://snd.dev), pacote `snd-lib`, MIT, só o kit SND01 (seno). O painel da primeira visita e as abas seguem o gesto do Morphing Modal e das abas com mola do [beUI](https://beui.dev), refeitos aqui com `motion`, no tom do Lance. Não há instalação do registro inteiro do beUI.
+O som é o [snd.dev](https://snd.dev), pacote `snd-lib`, MIT, só o kit SND01 (seno). O painel da primeira visita e as abas seguem o gesto do Morphing Modal e das abas com mola do [beUI](https://beui.dev), refeitos aqui com `motion`, no tom do Chesslint. Não há instalação do registro inteiro do beUI.
 
 ## Referências
 
 O visual conversa com três projetos anteriores:
 
-- [Facultas](https://github.com/MAUXII/facultas) — fundo `#151618`, superfície `#1e1e20`, fio branco a 8%, coluna estreita. O Lance herda esse tom e esse container. A fonte é Geist, a da Vercel.
+- [Facultas](https://github.com/MAUXII/facultas) — fundo `#151618`, superfície `#1e1e20`, fio branco a 8%, coluna estreita. O Chesslint herda esse tom e esse container. A fonte é Geist, a da Vercel.
 - [Copia](https://github.com/MAUXII/copia) — shadcn/ui neutro, componentes que se comportam como ferramenta e não como cartaz.
 - [GeoSprint](https://github.com/MAUXII/geosprint) — uma sessão que termina com um número. Daqui vem só isso.
 
@@ -153,7 +153,7 @@ As regras, o PGN e a FEN ficam com `chess.js`. Ver "De onde vem".
 
 Maia. Uma rede treinada em partidas humanas pode, no futuro, substituir o critério local do modo humano. A seta azul e a frase de coincidência continuam iguais; muda só de onde vem o lance.
 
-Extensão. Um complemento de navegador pode ler a posição de um tabuleiro já aberto e trazer essa FEN para o Lance.
+Extensão. Um complemento de navegador pode ler a posição de um tabuleiro já aberto e trazer essa FEN para o Chesslint.
 
 Tabuleiro conectado. No futuro, um tabuleiro físico ou uma partida em andamento pode empurrar lances para esta tela.
 
@@ -178,10 +178,10 @@ Catálogo grande de exercícios. Entram quatro posições escritas aqui: mate em
 O estudo que outros sites separam como produto pago está nesta tela, feito com o Stockfish e com o livro daqui.
 
 1. Coluna. Três momentos: Agora, Lista e Página. O resto fica quieto.
-2. Revisão. Ela abre em Analisar partida, no fim ou quando você pede. Durante a partida, tocar um lance só realça as casas. A classe do Lance sai da chance de vitória `1 / (1 + 10^(-cp/400))`, não da escala de outro site. O livro vem primeiro. Brilhante exige o sacrifício de bispo, torre ou dama que segue o melhor lance. As outras faixas usam a queda dessa chance: grande, melhor, excelente, bom, imprecisão, erro, omissão e vacilo. Na revisão, a casa de saída e a de chegada ganham a cor da classe, com a marca grande na chegada. A seta não sai em todo lance: verde quando há um lance melhor, amarela quando o lance abre um caminho ou ameaça uma peça, azul quando deixa uma peça sem defesa, vermelha no vacilo. A coluna mostra o progresso, a classe, uma frase quando a posição dá um fato, e Próximo. O gráfico usa os pontos já calculados e, no clique ou toque, leva o tabuleiro àquele lance. No fim, o resumo traz o resultado, o número de lances, a contagem por classe e uma precisão estimada do Lance para cada cor: a média, por lado, de uma nota por lance. Livro, melhor, brilhante e grande valem 1. Se a queda da chance existe, a nota é 1 menos essa queda, limitada a zero. Sem ela, se a queda em centipeões existe, a nota é 1 menos essa queda dividida por 300, limitada a zero. Sem as duas, a nota é 1. Tentar novamente volta à posição anterior ao erro, em estudo, e compara o lance novo com o melhor lance guardado.
-3. Abertura. O nome da linha, pelo livro do Lance.
+2. Revisão. Ela abre em Analisar partida, no fim ou quando você pede. Durante a partida, tocar um lance só realça as casas. A classe do Chesslint sai da chance de vitória `1 / (1 + 10^(-cp/400))`, não da escala de outro site. O livro vem primeiro. Brilhante exige o sacrifício de bispo, torre ou dama que segue o melhor lance. As outras faixas usam a queda dessa chance: grande, melhor, excelente, bom, imprecisão, erro, omissão e vacilo. Na revisão, a casa de saída e a de chegada ganham a cor da classe, com a marca grande na chegada. A seta não sai em todo lance: verde quando há um lance melhor, amarela quando o lance abre um caminho ou ameaça uma peça, azul quando deixa uma peça sem defesa, vermelha no vacilo. A coluna mostra o progresso, a classe, uma frase quando a posição dá um fato, e Próximo. O gráfico usa os pontos já calculados e, no clique ou toque, leva o tabuleiro àquele lance. No fim, o resumo traz o resultado, o número de lances, a contagem por classe e uma precisão estimada do Chesslint para cada cor: a média, por lado, de uma nota por lance. Livro, melhor, brilhante e grande valem 1. Se a queda da chance existe, a nota é 1 menos essa queda, limitada a zero. Sem ela, se a queda em centipeões existe, a nota é 1 menos essa queda dividida por 300, limitada a zero. Sem as duas, a nota é 1. Tentar novamente volta à posição anterior ao erro, em estudo, e compara o lance novo com o melhor lance guardado.
+3. Abertura. O nome da linha, pelo livro do Chesslint.
 4. Exercício. Mate em um, e um garfo. O catálogo grande continua de fora.
 5. Final. Rei e peão, e torre. O motor não responde enquanto o treino está aberto.
 6. A própria partida. Reabre do arquivo, com as notas e a queda da avaliação. A base de partidas de outras pessoas fica de fora.
 
-Ficam de fora neste ciclo: relógio, pré-lance, confirmação extra de lance, recolorir peças, áudio de madeira gravado, treinador por modelo de linguagem, catálogo grande de exercícios e qualquer desenho sem licença de redistribuição. Também ficam de fora vídeo-aula, conta, anúncio, torneio e transmissão. O Lance não copia o cliente de outro site.
+Ficam de fora neste ciclo: relógio, pré-lance, confirmação extra de lance, recolorir peças, áudio de madeira gravado, treinador por modelo de linguagem, catálogo grande de exercícios e qualquer desenho sem licença de redistribuição. Também ficam de fora vídeo-aula, conta, anúncio, torneio e transmissão. O Chesslint não copia o cliente de outro site.

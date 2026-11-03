@@ -13,7 +13,7 @@ const geist = Geist({
 })
 
 export const metadata: Metadata = {
-  title: "Lance",
+  title: "Chesslint",
   description: "Um tabuleiro que mostra o lance, e um caderno para o que você aprendeu.",
 }
 
