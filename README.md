@@ -26,7 +26,7 @@ npm run lint
 
 ## Peças, motor, fundo
 
-As peças estão em `public/pieces`, com a licença em `public/pieces/NOTICE.md`: Chessnut (Apache 2.0, Alexis Luengas), Fantasy e Celtic (MIT, Maurizio Monge).
+As peças estão em `public/pieces`, com a licença em `public/pieces/NOTICE.md`: o clássico de Colin M.L. Burnett (GPL-2.0 ou posterior), Celtic (MIT, Maurizio Monge) e Chessnut (Apache 2.0, Alexis Luengas).
 
 As regras são o [chess.js](https://github.com/jhlywa/chess.js). O motor é o Stockfish 19 em WASM, pelo pacote [stockfish.js](https://github.com/nmrugg/stockfish.js), GPL-3.0. O app fala com ele por UCI.
 

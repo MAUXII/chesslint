@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { arrowStroke, isKnightLeap, knightCorner } from "@/lib/arrow"
 import { OPENING_LINES, buildBook, lookupBook, openingTitle } from "@/lib/book"
 import { DRILLS, drillProgress } from "@/lib/drills"
 import { centipawnLoss, parseBestmove, parseInfo } from "@/lib/engine-parse"
@@ -12,6 +13,21 @@ import { isOpenWater } from "@/lib/sea"
 import { dropLine, fenBefore, loadSession } from "@/lib/session"
 
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+describe("seta", () => {
+  it("faz o L no cavalo, com a perna longa primeiro", () => {
+    expect(isKnightLeap("g1", "f3")).toBe(true)
+    expect(knightCorner("g1", "f3")).toBe("g3")
+    expect(knightCorner("b1", "c3")).toBe("b3")
+    expect(knightCorner("b1", "d2")).toBe("d1")
+    expect(knightCorner("e2", "e4")).toBeNull()
+    const bend = arrowStroke({ x: 6.5, y: 7.5 }, { x: 6.5, y: 5.5 }, { x: 5.5, y: 5.5 })
+    expect(bend.d.includes("Q")).toBe(true)
+    const straight = arrowStroke({ x: 4.5, y: 6.5 }, null, { x: 4.5, y: 4.5 })
+    expect(straight.d.includes("Q")).toBe(false)
+    expect(straight.head.split(" ").length).toBe(3)
+  })
+})
 
 describe("água", () => {
   function node(blocked: boolean) {
@@ -209,7 +225,7 @@ describe("partida", () => {
     const loaded = loadSession(JSON.stringify({ startFen: START, sans: ["e4"], boardTheme: "neon" }))
     expect(loaded?.tab).toBe("configurar")
     expect(loaded?.boardTheme).toBe("pedra")
-    expect(loaded?.pieceStyle).toBe("nitido")
+    expect(loaded?.pieceStyle).toBe("classico")
     expect(loaded?.sans).toEqual(["e4"])
 
     let state = reducer(initialState, { type: "user-move", san: "e4" })

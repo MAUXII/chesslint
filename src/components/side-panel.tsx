@@ -33,8 +33,8 @@ const choiceClass =
 
 const ASSIST: Record<Assistance, string> = {
   livre: "Nenhuma seta. Depois do seu lance, uma linha diz o que você jogou e o que o motor preferia, em peões.",
-  melhor: "Seta contínua no lance do motor, com a avaliação e três lances da linha.",
-  humano: "Seta tracejada no lance natural. Na abertura vem de um livro. Fora dele, é o lance mais ordinário perto do melhor.",
+  melhor: "Seta verde no lance do motor. No cavalo, a seta faz o L. A avaliação e três lances da linha vêm junto.",
+  humano: "Seta azul no lance natural. No cavalo, a seta faz o L. Na abertura vem de um livro. Fora dele, é o lance mais ordinário perto do melhor.",
 }
 
 const MODES: Record<Mode, string> = {
@@ -242,7 +242,7 @@ function Config({
         <p className="text-[13px] leading-5">{BOARD_THEMES[session.boardTheme].hint}</p>
       </Field>
 
-      <Field title="Peças" hint="Três desenhos publicados. O cavalo é um cavalo de perfil.">
+      <Field title="Peças" hint="O clássico é o diagrama limpo. O celta é o entalhe. O nítido é o contorno mais grosso.">
         <div className="space-y-1.5">
           {(Object.keys(PIECE_STYLES) as PieceStyle[]).map((id) => {
             const style = PIECE_STYLES[id]

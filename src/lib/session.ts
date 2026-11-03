@@ -86,7 +86,7 @@ export function defaultSession(): Session {
     strength: "clube",
     review: true,
     boardTheme: "pedra",
-    pieceStyle: "nitido",
+    pieceStyle: "classico",
     tab: "configurar",
     sound: true,
     welcomed: false,

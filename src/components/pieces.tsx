@@ -3,15 +3,15 @@ import Image from "next/image"
 import type { PieceStyle } from "@/lib/look"
 
 const SET_DIR: Record<PieceStyle, string> = {
-  nitido: "nitido",
-  staunton: "staunton",
+  classico: "classico",
   celta: "celta",
+  nitido: "nitido",
 }
 
 export function PieceArt({
   type,
   color,
-  pieceStyle = "nitido",
+  pieceStyle = "classico",
 }: {
   type: string
   color: "w" | "b"
@@ -26,7 +26,7 @@ export function PieceArt({
         fill
         unoptimized
         draggable={false}
-        className="pointer-events-none object-contain select-none [filter:drop-shadow(0_1px_1px_rgba(0,0,0,0.4))]"
+        className="pointer-events-none object-contain select-none"
       />
     </span>
   )

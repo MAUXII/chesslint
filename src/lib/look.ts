@@ -26,17 +26,17 @@ export const BOARD_THEMES = {
 } as const
 
 export const PIECE_STYLES = {
-  nitido: {
-    label: "Nítido",
-    hint: "Cavalo de perfil, coroa e torre com ameias. O desenho limpo do Chessnut.",
-  },
-  staunton: {
-    label: "Staunton",
-    hint: "O jogo de madeira, com sombra. O desenho Fantasy.",
+  classico: {
+    label: "Clássico",
+    hint: "O diagrama limpo. Cavalo de perfil, coroa com cruz, torre com ameias.",
   },
   celta: {
     label: "Celta",
     hint: "O mesmo cavalo, com o entalhe mais fechado.",
+  },
+  nitido: {
+    label: "Nítido",
+    hint: "O contorno mais grosso, o desenho do Chessnut.",
   },
 } as const
 

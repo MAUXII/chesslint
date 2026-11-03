@@ -17,8 +17,8 @@ type StepId = "cor" | "modo" | "ajuda" | "forca" | "casas" | "pecas" | "som"
 
 const ASSIST: Record<Assistance, string> = {
   livre: "Nenhuma seta. Depois do lance, uma linha compara com o motor.",
-  melhor: "Seta contínua no lance do motor, com a avaliação e três lances.",
-  humano: "Seta tracejada num lance natural, de livro ou perto do melhor.",
+  melhor: "Seta verde no lance do motor. No cavalo, ela faz o L.",
+  humano: "Seta azul no lance natural. No cavalo, ela faz o L.",
 }
 
 export function Welcome({ session, onDone }: { session: Session; onDone: (patch: WelcomePatch) => void }) {

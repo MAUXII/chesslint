@@ -15,7 +15,7 @@ Três repositórios foram perguntados. Só um entra como código nosso. O motor 
 - [code100x/chess](https://github.com/code100x/chess). Não entra. É uma plataforma de partidas online, com React, Node, websockets, Redis e Postgres. O Lance não importa arquivo nenhum de lá. Os dois projetos usam chess.js, cada um do seu lado.
 - [ascii-sharks](https://github.com/stackedlol/ascii-sharks), de drewdi, MIT. Entra no fundo da página. O código está em `src/vendor/ascii-sharks`, com a licença. O Lance usa o nado e o desenho do tubarão. O clique continua no tabuleiro.
 
-O desenho das peças vem de outros repositórios, com licença, listados em `public/pieces/NOTICE.md`: Chessnut (Alexis Luengas, Apache 2.0), Fantasy e Celtic (Maurizio Monge, MIT, peças públicas do Lichess). Chess.com, o conjunto padrão do Lichess (Cburnett, GPL) e os modelos do Discord Chess in the Park não foram copiados.
+O desenho das peças vem de outros repositórios, com licença, listados em `public/pieces/NOTICE.md`: o clássico de Colin M.L. Burnett (GPL-2.0 ou posterior, o conjunto padrão do Lichess), Celtic (Maurizio Monge, MIT) e Chessnut (Alexis Luengas, Apache 2.0). Os arquivos do Chess.com e os modelos do Discord Chess in the Park não foram copiados.
 
 O som é o [snd.dev](https://snd.dev), pacote `snd-lib`, MIT, só o kit SND01 (seno). O painel da primeira visita e as abas seguem o gesto do Morphing Modal e das abas com mola do [beUI](https://beui.dev), refeitos aqui com `motion`, no tom do Lance. Não há instalação do registro inteiro do beUI.
 
@@ -40,7 +40,7 @@ As perguntas, nesta ordem:
 - Ajuda: Livre, Melhor ou Humano, com a frase do modo escolhido.
 - Força do adversário, só se for partida.
 - Casas: pedra, madeira, verde ou tinta.
-- Peças: nítido, Staunton ou celta.
+- Peças: clássico, celta ou nítido.
 - Som: ligado ou mudo.
 
 O último botão é "Ir para o jogo". A escolha fica neste navegador e o painel não volta. Não há conta nem login. Configurar continua no topo para mudar qualquer coisa depois.
@@ -54,7 +54,7 @@ Configurar explica, uma frase por escolha:
 - Assistência: Livre, Melhor ou Humano. A frase debaixo do botão diz o que a escolha faz.
 - Força do adversário, só na partida: iniciante, clube, forte.
 - Tabuleiro: pedra, madeira, verde ou tinta.
-- Peças: nítido, Staunton ou celta.
+- Peças: clássico, celta ou nítido.
 - Som: ligado ou mudo. O mesmo interruptor vale para a linha de revisão, no modo livre.
 - Uma FEN, e as partidas anteriores.
 
@@ -81,9 +81,9 @@ Enquanto o WASM carrega, a coluna diz: "O motor está acordando." Se o arquivo n
 
 Livre. Nenhuma seta. Depois do seu lance, uma linha: o que você jogou e o que o motor preferia, em peões, quando o lance jogado estava entre as candidatas. Dá para calar essa linha. A contagem de coincidência continua.
 
-Melhor. Seta contínua no lance do Stockfish, a avaliação em peões e três lances da linha, em notação portuguesa (C, B, T, D, R).
+Melhor. Seta verde no lance do Stockfish. Numa torre, bispo, dama, rei ou peão ela é reta, do centro da casa até a outra. No cavalo ela faz o L: primeiro a perna mais longa, com o canto arredondado, e a ponta na casa de destino. A avaliação em peões e três lances da linha vêm junto, em notação portuguesa (C, B, T, D, R).
 
-Humano. Seta tracejada no lance natural.
+Humano. A mesma seta, em azul, no lance natural.
 
 - Na abertura, um livro pequeno embutido guarda as linhas mais jogadas. Em cada posição o livro tem um lance, o de maior peso entre as linhas que passam por ali.
 - Fora do livro, o Stockfish devolve três candidatas. O lance natural é a que está a até 0,35 peão da melhor e, dentro dessa janela, a mais ordinária: desenvolver cavalo ou bispo, rocar, e não sair com a dama cedo. Se a melhor já é essa, ou se nenhuma outra entra na janela, a tela diz que o lance natural coincide com o do motor.
@@ -117,7 +117,7 @@ Fundo `#151618`. Superfície `#1e1e20`. Texto branco, texto secundário `#888888
 
 O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde e tinta trocam só as casas. Casas sem raio. Moldura do tabuleiro, botões e campos com raio de 6px.
 
-As peças são três conjuntos publicados, no estado em que foram desenhados. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0: o cavalo de perfil, a coroa e a torre com ameias, na linha do que se lê no Chess.com e no Chess in the Park, do Discord. Staunton é o Fantasy, e Celta é o Celtic, os dois de Maurizio Monge, MIT, na linha do Lichess. A nota está em `public/pieces/NOTICE.md`.
+As peças são três conjuntos publicados, no estado em que foram desenhados. Clássico é o de Colin M.L. Burnett, GPL-2.0 ou posterior: o cavalo de perfil, a coroa com cruz e a torre com ameias, o diagrama limpo na linha do Lichess. Celta é o Celtic, de Maurizio Monge, MIT. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0. A nota está em `public/pieces/NOTICE.md`.
 
 No fundo da página o nado é o do [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT. O desenho é outro: caractere pequeno, só branco, apagado, com dither Bayer e um tremor de meio pixel. Sem grade e sem cor. O cardume é curto. Um clique no fundo, fora do tabuleiro, da coluna e dos controles, empurra a altura da água. A crista anda para fora, em dither branco, e some. Dois cliques se cruzam. Clique em peça, casa ou na partida não mexe a água. Se o sistema pedir menos movimento, o oceano para num quadro só e o clique não abre anel.
 
@@ -149,7 +149,7 @@ As regras, o PGN e a FEN ficam com `chess.js`. Ver "De onde vem".
 
 ## Fora desta versão
 
-Maia. Uma rede treinada em partidas humanas pode, no futuro, substituir o critério local do modo humano. A seta tracejada e a frase de coincidência continuam iguais; muda só de onde vem o lance.
+Maia. Uma rede treinada em partidas humanas pode, no futuro, substituir o critério local do modo humano. A seta azul e a frase de coincidência continuam iguais; muda só de onde vem o lance.
 
 Extensão. Um complemento de navegador pode ler a posição de um tabuleiro já aberto e trazer essa FEN para o Lance.
 

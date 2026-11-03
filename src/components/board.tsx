@@ -3,6 +3,7 @@
 import { useRef, useState } from "react"
 
 import { PieceArt } from "@/components/pieces"
+import { arrowStroke, knightCorner } from "@/lib/arrow"
 import type { Placement } from "@/lib/game"
 import { BOARD_THEMES, type BoardTheme, type PieceStyle } from "@/lib/look"
 import type { Color } from "@/lib/session"
@@ -144,7 +145,6 @@ export function Board({
           )
         })}
       </div>
-      {arrow && <ArrowLayer arrow={arrow} orientation={orientation} />}
       {pieces.map((piece) => {
         const dragging = drag?.id === piece.id
         const at = point(piece.square, orientation)
@@ -152,7 +152,7 @@ export function Board({
         return (
           <div
             key={piece.id}
-            className={dragging ? "absolute z-20 cursor-grabbing" : "lance-piece absolute z-10"}
+            className={dragging ? "absolute z-40 cursor-grabbing" : "lance-piece absolute z-10"}
             style={{
               width: "12.5%",
               height: "12.5%",
@@ -211,6 +211,7 @@ export function Board({
           </div>
         )
       })}
+      {arrow && <ArrowLayer arrow={arrow} orientation={orientation} />}
     </div>
   )
 }
@@ -218,33 +219,22 @@ export function Board({
 function ArrowLayer({ arrow, orientation }: { arrow: Arrow; orientation: Color }) {
   const from = center(arrow.from, orientation)
   const to = center(arrow.to, orientation)
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  const len = Math.hypot(dx, dy) || 1
-  const end = { x: to.x - (dx / len) * 0.28, y: to.y - (dy / len) * 0.28 }
-  const angle = Math.atan2(dy, dx)
-  const head = 0.32
-  const left = {
-    x: end.x - Math.cos(angle) * head + Math.cos(angle + Math.PI / 2) * head * 0.55,
-    y: end.y - Math.sin(angle) * head + Math.sin(angle + Math.PI / 2) * head * 0.55,
-  }
-  const right = {
-    x: end.x - Math.cos(angle) * head - Math.cos(angle + Math.PI / 2) * head * 0.55,
-    y: end.y - Math.sin(angle) * head - Math.sin(angle + Math.PI / 2) * head * 0.55,
-  }
-  const line = `M ${from.x} ${from.y} L ${end.x} ${end.y}`
+  const bend = knightCorner(arrow.from, arrow.to)
+  const corner = bend ? center(bend, orientation) : null
+  const stroke = arrowStroke(from, corner, to)
+  const color = arrow.dashed ? "#2f6fad" : "#7fa650"
   return (
-    <svg viewBox="0 0 8 8" className="pointer-events-none absolute inset-0 h-full w-full">
-      <path d={line} fill="none" stroke="#f7f4ee" strokeWidth="0.16" strokeLinecap="round" />
+    <svg viewBox="0 0 8 8" className="pointer-events-none absolute inset-0 z-30 h-full w-full">
       <path
-        d={line}
+        d={stroke.d}
         fill="none"
-        stroke="#2a2622"
-        strokeWidth="0.075"
+        stroke={color}
+        strokeWidth="0.2"
         strokeLinecap="round"
-        strokeDasharray={arrow.dashed ? "0.18 0.12" : undefined}
+        strokeLinejoin="round"
+        opacity="0.9"
       />
-      <polygon points={`${end.x},${end.y} ${left.x},${left.y} ${right.x},${right.y}`} fill="#2a2622" stroke="#f7f4ee" strokeWidth="0.04" />
+      <polygon points={stroke.head} fill={color} opacity="0.9" />
     </svg>
   )
 }

@@ -2,8 +2,8 @@
 
 Três conjuntos publicados, sem alteração no desenho.
 
-- `nitido/` — Chessnut, de Alexis Luengas. Apache 2.0. Fonte: https://github.com/LexLuengas/chessnut-pieces
-- `staunton/` — Fantasy, de Maurizio Monge. MIT. Fonte: https://github.com/lichess-org/lila/tree/master/public/piece/fantasy
+- `classico/` — Colin M.L. Burnett. GPL-2.0 ou posterior. Fonte: https://github.com/lichess-org/lila/tree/master/public/piece/cburnett
 - `celta/` — Celtic, de Maurizio Monge. MIT. Fonte: https://github.com/lichess-org/lila/tree/master/public/piece/celtic
+- `nitido/` — Chessnut, de Alexis Luengas. Apache 2.0. Fonte: https://github.com/LexLuengas/chessnut-pieces
 
-O Lance não usa os arquivos do Chess.com nem os modelos do Chess in the Park, do Discord. Esses dois, e o conjunto padrão do Lichess, são a referência de leitura: cavalo de perfil, coroa, torre com ameias. Os arquivos daqui são os conjuntos abertos dessa mesma família.
+O Lance não usa os arquivos do Chess.com. O clássico é o desenho aberto do mesmo diagrama: cavalo de perfil, coroa, torre com ameias.
