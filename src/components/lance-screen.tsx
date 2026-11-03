@@ -22,6 +22,7 @@ import { EngineClient } from "@/lib/engine"
 import { parseFen, placements, replay, resultText, safeMove, squareOfKing, toPgn } from "@/lib/game"
 import { resolveHuman } from "@/lib/human"
 import { formatMoverScore, sanPt, uciParts } from "@/lib/notation"
+import { GRADE_COLOR, badgeGrade, gradeOf, type Grade } from "@/lib/review"
 import { initialState, reducer, type Review } from "@/lib/reducer"
 import { bootSnd, playSnd } from "@/lib/snd"
 import {
@@ -194,9 +195,12 @@ export function LanceScreen() {
     setHeldEval({ fen: liveFen, cp: white.cp, mate: white.mate })
   }
   const human = session.assistance === "humano" && atLive ? resolveHuman(liveFen, matched) : null
-  const arrow = drilling
+  const suggestion = drilling
     ? null
     : arrowFor(session.assistance, atLive, gameOver, playerTurn, matched?.best ?? null, human?.uci ?? null)
+  const focusPly = atLive ? session.sans.length : (state.viewPly ?? 0)
+  const reviewed = drilling ? null : reviewOf(session.startFen, session.sans, session.marks, focusPly > 0 ? focusPly : null)
+  const arrows = suggestion ? [suggestion] : (reviewed?.arrows ?? [])
   const drill = drillById(session.drillId)
   const drillStatus = drill ? drillProgress(drill, session.sans) : null
 
@@ -294,7 +298,9 @@ export function LanceScreen() {
               selected={selected}
               destinations={legals}
               checkSquare={shown.isCheck() ? squareOfKing(shown, shown.turn()) : null}
-              arrow={arrow}
+              arrows={arrows}
+              tintSquare={suggestion ? null : (reviewed?.from ?? null)}
+              badge={suggestion ? null : (reviewed?.badge ?? null)}
               turn={turn}
               theme={session.boardTheme}
               pieceStyle={session.pieceStyle}
@@ -446,11 +452,38 @@ function arrowFor(
   playerTurn: boolean,
   best: string | null,
   humanUci: string | null,
-): { from: string; to: string; dashed: boolean } | null {
+): { from: string; to: string; color: string } | null {
   if (!atLive || gameOver || !playerTurn) return null
   const uci = assistance === "melhor" ? best : assistance === "humano" ? humanUci : null
   if (!uci || uci.length < 4) return null
-  return { from: uci.slice(0, 2), to: uci.slice(2, 4), dashed: assistance === "humano" }
+  return { from: uci.slice(0, 2), to: uci.slice(2, 4), color: assistance === "humano" ? "#2f6fad" : "#7fa650" }
+}
+
+function reviewOf(
+  startFen: string,
+  sans: string[],
+  marks: { ply: number; matched: boolean; drop: number | null; book: boolean; best: string | null; bestSan: string | null; sacrifice: boolean }[],
+  ply: number | null,
+): { arrows: { from: string; to: string; color: string }[]; from: string; badge: { square: string; grade: Grade } | null } | null {
+  if (ply == null || ply < 1) return null
+  const san = sans[ply - 1]
+  if (!san) return null
+  const move = safeMove(replay(startFen, sans.slice(0, ply - 1)), san)
+  if (!move) return null
+  const mark = marks.find((item) => item.ply === ply)
+  const grade = mark ? gradeOf(mark) : null
+  const color = grade ? GRADE_COLOR[grade] : "#d9d3c7"
+  const arrows: { from: string; to: string; color: string }[] = [{ from: move.from, to: move.to, color }]
+  const bad = grade === "imprecisao" || grade === "erro" || grade === "vacilo"
+  if (bad && mark?.best && mark.best !== move.lan && mark.best.length >= 4) {
+    arrows.unshift({ from: mark.best.slice(0, 2), to: mark.best.slice(2, 4), color: "#7fa650" })
+  }
+  const shown = badgeGrade(grade)
+  return {
+    arrows,
+    from: move.from,
+    badge: shown ? { square: move.to, grade: shown } : null,
+  }
 }
 
 function reviewCopy(review: Review): string {

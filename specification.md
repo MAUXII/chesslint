@@ -176,7 +176,7 @@ Catálogo grande de exercícios. Entram quatro posições escritas aqui: mate em
 O estudo que outros sites separam como produto pago está nesta tela, feito com o Stockfish e com o livro daqui.
 
 1. Coluna. Três momentos: Agora, Lista e Página. O resto fica quieto.
-2. Revisão. O lance em que a avaliação mais caiu, em peões, quando o motor já tinha a linha. O número aparece só nesse lance.
+2. Revisão. Cada lance seu ganha uma classe: livro, brilhante, melhor, excelente, imprecisão, erro ou vacilo. A seta do lance usa a cor da classe, reta, e em L no cavalo. A casa de saída fica marcada e a de chegada leva o símbolo. Se o lance foi ruim, a seta verde do motor fica por baixo. A coluna diz a classe, a avaliação em peões, uma frase e um Próximo. A lista leva o símbolo. O gráfico acompanha a avaliação, e os botões andam a partida: início, anterior, jogar, avançar e fim. A maior queda, em peões, continua escrita em Agora.
 3. Abertura. O nome da linha, pelo livro do Lance.
 4. Exercício. Mate em um, e um garfo. O catálogo grande continua de fora.
 5. Final. Rei e peão, e torre. O motor não responde enquanto o treino está aberto.

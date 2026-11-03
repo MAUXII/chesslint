@@ -15,6 +15,19 @@ import { START_FEN } from "@/lib/game"
 import { BOARD_THEMES, PIECE_STYLES, type BoardTheme, type PieceStyle } from "@/lib/look"
 import { formatDrop, sanPt } from "@/lib/notation"
 import {
+  GRADE_COLOR,
+  badgeGrade,
+  evalSeries,
+  explainLine,
+  formatReviewCp,
+  gradeGlyph,
+  gradeLine,
+  gradeOf,
+  isLastBook,
+  moverColor,
+  type Grade,
+} from "@/lib/review"
+import {
   TAGS,
   dropLine,
   largestDrop,
@@ -449,7 +462,8 @@ function Game({
   onDeleteNote: (ply: number) => void
   onOpenArchive: (id: string) => void
 }) {
-  const notePly = !atLive && viewPly ? viewPly : session.sans.length
+  const focus = !atLive && viewPly != null ? viewPly : session.sans.length
+  const notePly = focus
   const noteSan = notePly > 0 ? session.sans[notePly - 1] : null
   const drill = drillById(session.drillId)
   const progress = drill ? drillProgress(drill, session.sans) : null
@@ -467,16 +481,85 @@ function Game({
   }
   const listRef = useRef<HTMLOListElement>(null)
   const quiet = Boolean(drill)
+  const [playFrom, setPlayFrom] = useState<number | null>(null)
+  const [explainOn, setExplainOn] = useState(false)
+  const [explainFocus, setExplainFocus] = useState(focus)
+  if (explainFocus !== focus) {
+    setExplainFocus(focus)
+    setExplainOn(false)
+  }
+  const playToken = `${session.startFen}|${session.sans.length}`
+  const [seenPlay, setSeenPlay] = useState(playToken)
+  if (seenPlay !== playToken) {
+    setSeenPlay(playToken)
+    if (playFrom != null) setPlayFrom(null)
+  }
+  const onViewRef = useRef(onView)
+  const onBackRef = useRef(onBack)
+  const startTurn = session.startFen.split(" ")[1] === "b" ? "b" : "w"
+  const series = evalSeries(session.evals, session.marks, session.sans.length, startTurn)
 
   useEffect(() => {
-    if (moment !== "lista" || !atLive) return
+    onViewRef.current = onView
+    onBackRef.current = onBack
+  })
+
+  useEffect(() => {
+    if (playFrom == null) return
+    const id = window.setTimeout(() => {
+      const next = playFrom + 1
+      if (next >= session.sans.length) {
+        onBackRef.current()
+        setPlayFrom(null)
+        return
+      }
+      onViewRef.current(next)
+      setPlayFrom(next)
+    }, 700)
+    return () => window.clearTimeout(id)
+  }, [playFrom, session.sans.length])
+
+  useEffect(() => {
+    if (moment !== "lista") return
     const list = listRef.current
-    list?.parentElement?.scrollTo({ top: list.scrollHeight })
-  }, [atLive, moment, session.sans.length])
+    if (!list) return
+    if (atLive) {
+      list.parentElement?.scrollTo({ top: list.scrollHeight })
+      return
+    }
+    list.querySelector("[data-active='true']")?.scrollIntoView({ block: "nearest" })
+  }, [atLive, moment, session.sans.length, viewPly])
+
+  function stopPlay() {
+    setPlayFrom(null)
+  }
 
   function openPly(ply: number) {
+    stopPlay()
     onView(ply)
     setMoment("pagina")
+  }
+
+  function step(delta: number) {
+    stopPlay()
+    const next = Math.max(0, Math.min(session.sans.length, focus + delta))
+    if (next >= session.sans.length) onBack()
+    else onView(next)
+  }
+
+  function togglePlay() {
+    if (playFrom != null) {
+      stopPlay()
+      return
+    }
+    if (session.sans.length === 0) return
+    const first = atLive ? 0 : Math.min(session.sans.length, focus + 1)
+    if (first >= session.sans.length) {
+      onBack()
+      return
+    }
+    onView(first)
+    setPlayFrom(first)
   }
 
   return (
@@ -486,6 +569,30 @@ function Game({
         {opening && <p className="text-[13px] text-muted-foreground">Abertura · {opening}</p>}
         <p className="text-[13px] leading-5 text-muted-foreground">{playing.body}</p>
       </div>
+
+      {!quiet && session.sans.length > 0 && (
+        <ReviewCard
+          session={session}
+          focus={focus}
+          atLive={atLive}
+          playing={playFrom != null}
+          explainOn={explainOn}
+          series={series}
+          startTurn={startTurn}
+          onExplain={() => setExplainOn((value) => !value)}
+          onNext={() => step(1)}
+          onStep={step}
+          onStart={() => {
+            stopPlay()
+            onView(0)
+          }}
+          onEnd={() => {
+            stopPlay()
+            onBack()
+          }}
+          onTogglePlay={togglePlay}
+        />
+      )}
 
       {moment === "agora" && (
         <div className="space-y-1 text-[13px] leading-5">
@@ -609,24 +716,31 @@ function Game({
               <ol ref={listRef} className="space-y-0.5 text-[13px]">
                 {rows(session.sans).map((row) => {
                   const whiteNote = session.notes.find((note) => note.ply === row.whitePly)
-                  const blackNote = row.blackPly ? session.notes.find((note) => note.ply === row.blackPly) : undefined
+                  const blackPly = row.blackPly
+                  const blackNote = blackPly ? session.notes.find((note) => note.ply === blackPly) : undefined
                   return (
                     <li key={row.n} className="grid grid-cols-[1.5rem_1fr_1fr] gap-x-1">
                       <span className="text-muted-foreground">{row.n}</span>
                       <MoveButton
                         san={row.white}
+                        ply={row.whitePly}
+                        pieceStyle={session.pieceStyle}
+                        startTurn={startTurn}
+                        grade={listedGrade(session, row.whitePly)}
                         noted={Boolean(whiteNote)}
-                        loss={fallen?.ply === row.whitePly ? fallen.drop : null}
                         active={activePly(row.whitePly, viewPly, atLive, session.sans.length)}
                         onClick={() => openPly(row.whitePly)}
                       />
-                      {row.black && row.blackPly ? (
+                      {row.black && blackPly != null ? (
                         <MoveButton
                           san={row.black}
+                          ply={blackPly}
+                          pieceStyle={session.pieceStyle}
+                          startTurn={startTurn}
+                          grade={listedGrade(session, blackPly)}
                           noted={Boolean(blackNote)}
-                          loss={fallen?.ply === row.blackPly ? fallen.drop : null}
-                          active={activePly(row.blackPly, viewPly, atLive, session.sans.length)}
-                          onClick={() => openPly(row.blackPly!)}
+                          active={activePly(blackPly, viewPly, atLive, session.sans.length)}
+                          onClick={() => openPly(blackPly)}
                         />
                       ) : (
                         <span />
@@ -871,26 +985,49 @@ function Choice<T extends string>({
 
 function MoveButton({
   san,
+  ply,
+  pieceStyle,
+  startTurn,
+  grade,
   noted,
-  loss,
   active,
   onClick,
 }: {
   san: string
+  ply: number
+  pieceStyle: PieceStyle
+  startTurn: "w" | "b"
+  grade: Grade | null
   noted: boolean
-  loss: number | null
   active: boolean
   onClick: () => void
 }) {
+  const type = figurine(san)
+  const color = moverColor(startTurn, ply)
+  const name = sanPt(san)
   return (
     <button
       type="button"
+      data-active={active ? "true" : "false"}
       onClick={onClick}
-      className={active ? "rounded-[6px] bg-white/10 px-1 text-left text-white" : "px-1 text-left text-white/80"}
+      aria-label={grade ? `${name}, ${GRADE_NAME[grade]}` : name}
+      className={
+        active
+          ? "flex min-w-0 items-center gap-1 rounded-[6px] bg-white/10 px-1 text-left text-white"
+          : "flex min-w-0 items-center gap-1 px-1 text-left text-white/80"
+      }
     >
-      {san}
-      {noted && <span className="ml-1 inline-block size-1 translate-y-[-1px] rounded-full bg-white/70" />}
-      {loss != null && <span className="ml-1 text-[11px] text-white/35 tabular-nums">−{formatDrop(loss)}</span>}
+      {grade && <GradeMark grade={grade} />}
+      {type && (
+        <span
+          className="relative size-3.5 shrink-0 rounded-[2px]"
+          style={{ background: color === "w" ? "#6f6a62" : "#e4e0d8" }}
+        >
+          <PieceArt type={type} color={color} pieceStyle={pieceStyle} />
+        </span>
+      )}
+      <span className="truncate">{name}</span>
+      {noted && <span className="size-1 shrink-0 rounded-full bg-white/70" />}
     </button>
   )
 }
@@ -927,13 +1064,218 @@ function rows(sans: string[]) {
   for (let index = 0; index < sans.length; index += 2) {
     out.push({
       n: index / 2 + 1,
-      white: sanPt(sans[index]),
+      white: sans[index],
       whitePly: index + 1,
-      black: sans[index + 1] ? sanPt(sans[index + 1]) : undefined,
+      black: sans[index + 1],
       blackPly: sans[index + 1] ? index + 2 : undefined,
     })
   }
   return out
+}
+
+function listedGrade(session: Session, ply: number): Grade | null {
+  const mark = session.marks.find((item) => item.ply === ply)
+  if (!mark) return null
+  return badgeGrade(gradeOf(mark))
+}
+
+const GRADE_NAME: Record<Grade, string> = {
+  livro: "livro",
+  brilhante: "brilhante",
+  melhor: "melhor",
+  excelente: "excelente",
+  imprecisao: "imprecisão",
+  erro: "erro",
+  vacilo: "vacilo",
+}
+
+function figurine(san: string): string | null {
+  if (san.startsWith("O-O")) return "k"
+  const map: Record<string, string> = { K: "k", Q: "q", R: "r", B: "b", N: "n" }
+  return map[san[0]] ?? null
+}
+
+function ReviewCard({
+  session,
+  focus,
+  atLive,
+  playing,
+  explainOn,
+  series,
+  startTurn,
+  onExplain,
+  onNext,
+  onStep,
+  onStart,
+  onEnd,
+  onTogglePlay,
+}: {
+  session: Session
+  focus: number
+  atLive: boolean
+  playing: boolean
+  explainOn: boolean
+  series: (number | null)[]
+  startTurn: "w" | "b"
+  onExplain: () => void
+  onNext: () => void
+  onStep: (delta: number) => void
+  onStart: () => void
+  onEnd: () => void
+  onTogglePlay: () => void
+}) {
+  const san = focus > 0 ? session.sans[focus - 1] : null
+  const mark = session.marks.find((item) => item.ply === focus) ?? null
+  const grade = mark ? gradeOf(mark) : null
+  const lastBook = Boolean(grade === "livro" && isLastBook(session.marks, focus))
+  const playerMove = san ? moverColor(startTurn, focus) === session.player || session.mode === "estudo" : false
+  const line = !san
+    ? "Posição inicial"
+    : grade
+      ? gradeLine(san, grade, lastBook)
+      : playerMove
+        ? `${sanPt(san)} ainda sem classificação`
+        : `${sanPt(san)} é lance do motor`
+  const explanation = grade ? explainLine(grade, mark?.bestSan ?? null, Boolean(mark?.matched), lastBook) : null
+  const score = series[focus]
+  const chip = typeof score === "number" ? formatReviewCp(score) : null
+  const grades = series.map((_, index) => {
+    const item = session.marks.find((mark) => mark.ply === index)
+    return item ? gradeOf(item) : null
+  })
+
+  return (
+    <section className="space-y-2" aria-label="Revisão do lance">
+      <div className="rounded-[6px] border border-border px-3 py-2">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[13px] leading-5">{line}</p>
+          {chip && (
+            <span className="shrink-0 rounded-[4px] bg-white/10 px-1.5 py-0.5 text-[12px] tabular-nums">{chip}</span>
+          )}
+        </div>
+        {explainOn && explanation && <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{explanation}</p>}
+      </div>
+      <div className="flex gap-1.5">
+        <Button type="button" variant="outline" className="flex-1" onClick={onExplain} disabled={!explanation} aria-pressed={explainOn}>
+          Explicar
+        </Button>
+        <Button
+          type="button"
+          className="flex-[1.5] bg-[#7fa650] text-white hover:bg-[#8fb564]"
+          onClick={onNext}
+          disabled={atLive}
+        >
+          Próximo
+        </Button>
+      </div>
+      <EvalGraph series={series} grades={grades} active={focus} />
+      <div className="grid grid-cols-5 gap-1">
+        <Transport label="Início" glyph="|◀" disabled={focus === 0} onClick={onStart} />
+        <Transport label="Anterior" glyph="◀" disabled={focus === 0} onClick={() => onStep(-1)} />
+        <Transport label={playing ? "Pausar" : "Jogar"} glyph={playing ? "❚❚" : "▶"} disabled={session.sans.length === 0} onClick={onTogglePlay} />
+        <Transport label="Avançar" glyph="▶" disabled={atLive} onClick={onNext} />
+        <Transport label="Fim" glyph="▶|" disabled={atLive} onClick={onEnd} />
+      </div>
+    </section>
+  )
+}
+
+function Transport({
+  label,
+  glyph,
+  disabled,
+  onClick,
+}: {
+  label: string
+  glyph: string
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <Button type="button" variant="outline" size="sm" className="w-full px-0" aria-label={label} disabled={disabled} onClick={onClick}>
+      <span aria-hidden>{glyph}</span>
+    </Button>
+  )
+}
+
+function EvalGraph({
+  series,
+  grades,
+  active,
+}: {
+  series: (number | null)[]
+  grades: (Grade | null)[]
+  active: number
+}) {
+  const points = series.flatMap((cp, index) => (typeof cp === "number" ? [{ index, cp }] : []))
+  if (points.length < 2) return null
+  const last = Math.max(1, series.length - 1)
+  const xOf = (index: number) => (index / last) * 100
+  const yOf = (cp: number) => {
+    const clamped = Math.max(-500, Math.min(500, cp))
+    return 18 - (clamped / 500) * 12
+  }
+  const mid = yOf(0)
+  const segments: string[] = []
+  let current = ""
+  let prev = -1
+  for (const point of points) {
+    const cmd = `${xOf(point.index).toFixed(2)} ${yOf(point.cp).toFixed(2)}`
+    if (current && point.index === prev + 1) current += ` L ${cmd}`
+    else {
+      if (current) segments.push(current)
+      current = `M ${cmd}`
+    }
+    prev = point.index
+  }
+  if (current) segments.push(current)
+
+  return (
+    <svg viewBox="0 0 100 36" className="h-16 w-full" role="img" aria-label="Avaliação da partida">
+      <rect x="0" y="4" width="100" height={mid - 4} fill="rgba(255,255,255,0.04)" />
+      <rect x="0" y={mid} width="100" height={32 - mid} fill="rgba(0,0,0,0.28)" />
+      <line x1="0" y1={mid} x2="100" y2={mid} stroke="rgba(255,255,255,0.28)" strokeWidth="0.35" />
+      {segments.map((d) => (
+        <path key={d} d={d} fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth="0.7" />
+      ))}
+      {points.map((point) => {
+        const grade = grades[point.index]
+        const big = point.index === active
+        return (
+          <circle
+            key={point.index}
+            cx={xOf(point.index)}
+            cy={yOf(point.cp)}
+            r={big ? 1.6 : 0.95}
+            fill={grade ? GRADE_COLOR[grade] : "rgba(255,255,255,0.72)"}
+          />
+        )
+      })}
+    </svg>
+  )
+}
+
+function GradeMark({ grade }: { grade: Grade }) {
+  return (
+    <span
+      className="inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[8px] leading-none font-medium text-white"
+      style={{ background: GRADE_COLOR[grade] }}
+      aria-hidden
+    >
+      {grade === "livro" ? <BookMark /> : gradeGlyph(grade)}
+    </span>
+  )
+}
+
+function BookMark() {
+  return (
+    <svg viewBox="0 0 12 12" className="size-2.5" aria-hidden>
+      <path
+        d="M1.6 2.2h3.4c.5 0 1 .2 1.2.7.2-.5.7-.7 1.2-.7h3V9.6H7.4c-.4 0-.8.2-1.2.5-.4-.3-.8-.5-1.2-.5H1.6V2.2z"
+        fill="currentColor"
+      />
+    </svg>
+  )
 }
 
 function activePly(ply: number, viewPly: number | null, atLive: boolean, length: number): boolean {

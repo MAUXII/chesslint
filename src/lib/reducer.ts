@@ -1,5 +1,7 @@
+import { lookupBook } from "@/lib/book"
 import { drillById } from "@/lib/drills"
-import { centipawnLoss, type Analysis } from "@/lib/engine-parse"
+import { centipawnLoss, toWhite, type Analysis } from "@/lib/engine-parse"
+import { isSacrifice } from "@/lib/review"
 import { safeMove, replay } from "@/lib/game"
 import { formatMoverScore, uciParts } from "@/lib/notation"
 import {
@@ -89,9 +91,19 @@ export function reducer(state: State, action: Action): State {
     case "thinking":
       return state.thinking === action.thinking ? state : { ...state, thinking: action.thinking }
     case "analysis": {
-      const live = replay(state.session.startFen, state.session.sans).fen()
-      if (!analysisMatches(action.analysis, live)) return state
-      return { ...state, analysis: action.analysis }
+      const chess = replay(state.session.startFen, state.session.sans)
+      if (!analysisMatches(action.analysis, chess.fen())) return state
+      const line = action.analysis.lines.find((item) => item.pv[0] === action.analysis.best) ?? action.analysis.lines[0]
+      let evals = state.session.evals
+      if (line) {
+        const white = toWhite(chess.turn(), line.cp, line.mate)
+        const score = white.mate != null ? (white.mate > 0 ? 900 : -900) : white.cp
+        if (score != null) {
+          evals = state.session.evals.slice()
+          evals[state.session.sans.length] = score
+        }
+      }
+      return { ...state, analysis: action.analysis, session: { ...state.session, evals } }
     }
     case "user-move":
       return applyUserMove(state, action.san)
@@ -162,15 +174,19 @@ function applyUserMove(state: State, san: string): State {
   let reviewLine: Review | null = null
   if (analysisMatches(state.analysis, before) && state.analysis?.best) {
     const same = move.lan === state.analysis.best
+    const bestSan = sanAt(before, state.analysis.best) ?? state.analysis.best
     marks = [
       ...marks,
       {
         ply: state.session.sans.length + 1,
         matched: same,
         drop: centipawnLoss(state.analysis, move.lan),
+        book: lookupBook(before) === move.lan,
+        best: state.analysis.best,
+        bestSan,
+        sacrifice: isSacrifice(move.piece, move.captured),
       },
     ]
-    const bestSan = sanAt(before, state.analysis.best) ?? state.analysis.best
     const bestLine = state.analysis.lines.find((line) => line.pv[0] === state.analysis?.best)
     const playedLine = state.analysis.lines.find((line) => line.pv[0] === move.lan)
     reviewLine = {
@@ -184,7 +200,12 @@ function applyUserMove(state: State, san: string): State {
 
   return {
     ...state,
-    session: { ...state.session, sans: [...state.session.sans, move.san], marks },
+    session: {
+      ...state.session,
+      sans: [...state.session.sans, move.san],
+      marks,
+      evals: state.session.evals.slice(0, state.session.sans.length + 1),
+    },
     analysis: null,
     reviewLine,
     thinking: false,
@@ -218,6 +239,7 @@ function undo(state: State): State {
       sans,
       notes: state.session.notes.filter((note) => note.ply <= sans.length),
       marks: state.session.marks.filter((mark) => mark.ply <= sans.length),
+      evals: state.session.evals.slice(0, sans.length + 1),
     },
     analysis: null,
     reviewLine: null,
@@ -259,6 +281,7 @@ function openArchive(state: State, id: string): State {
     sans: item.sans,
     notes: item.notes,
     marks: item.marks,
+    evals: item.evals ?? [],
     player: item.player,
     drillId: null,
     archive: pushArchive({ ...state.session, archive: rest }),

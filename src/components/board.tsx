@@ -6,6 +6,7 @@ import { PieceArt } from "@/components/pieces"
 import { arrowStroke, knightCorner } from "@/lib/arrow"
 import type { Placement } from "@/lib/game"
 import { BOARD_THEMES, type BoardTheme, type PieceStyle } from "@/lib/look"
+import { GRADE_COLOR, gradeGlyph, type Grade } from "@/lib/review"
 import type { Color } from "@/lib/session"
 
 const PIECE_NAME: Record<string, string> = {
@@ -20,7 +21,7 @@ const PIECE_NAME: Record<string, string> = {
 type Arrow = {
   from: string
   to: string
-  dashed: boolean
+  color: string
 }
 
 type Drag = {
@@ -40,7 +41,9 @@ export function Board({
   selected,
   destinations,
   checkSquare,
-  arrow,
+  arrows,
+  tintSquare,
+  badge,
   turn,
   theme,
   pieceStyle,
@@ -54,7 +57,9 @@ export function Board({
   selected: string | null
   destinations: { to: string; capture: boolean }[]
   checkSquare: string | null
-  arrow: Arrow | null
+  arrows: Arrow[]
+  tintSquare: string | null
+  badge: { square: string; grade: Grade } | null
   turn: Color | null
   theme: BoardTheme
   pieceStyle: PieceStyle
@@ -107,6 +112,9 @@ export function Board({
               style={{ background: tone }}
             >
               {marked && <span className="absolute inset-0" style={{ background: "rgba(72, 54, 24, 0.18)" }} />}
+              {tintSquare === square && (
+                <span className="absolute inset-0" style={{ background: "rgba(214, 176, 122, 0.55)" }} />
+              )}
               {selected === square && (
                 <span className="absolute inset-0" style={{ background: "rgba(255, 255, 255, 0.22)" }} />
               )}
@@ -211,30 +219,64 @@ export function Board({
           </div>
         )
       })}
-      {arrow && <ArrowLayer arrow={arrow} orientation={orientation} />}
+      {arrows.length > 0 && (
+        <svg viewBox="0 0 8 8" className="pointer-events-none absolute inset-0 z-30 h-full w-full">
+          {arrows.map((arrow) => (
+            <ArrowShape key={`${arrow.from}${arrow.to}${arrow.color}`} arrow={arrow} orientation={orientation} />
+          ))}
+        </svg>
+      )}
+      {badge && <MoveBadge square={badge.square} grade={badge.grade} orientation={orientation} />}
     </div>
   )
 }
 
-function ArrowLayer({ arrow, orientation }: { arrow: Arrow; orientation: Color }) {
+function ArrowShape({ arrow, orientation }: { arrow: Arrow; orientation: Color }) {
   const from = center(arrow.from, orientation)
   const to = center(arrow.to, orientation)
   const bend = knightCorner(arrow.from, arrow.to)
   const corner = bend ? center(bend, orientation) : null
   const stroke = arrowStroke(from, corner, to)
-  const color = arrow.dashed ? "#2f6fad" : "#7fa650"
   return (
-    <svg viewBox="0 0 8 8" className="pointer-events-none absolute inset-0 z-30 h-full w-full">
+    <g>
       <path
         d={stroke.d}
         fill="none"
-        stroke={color}
-        strokeWidth="0.2"
+        stroke={arrow.color}
+        strokeWidth="0.22"
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity="0.9"
+        opacity="0.92"
       />
-      <polygon points={stroke.head} fill={color} opacity="0.9" />
+      <polygon points={stroke.head} fill={arrow.color} opacity="0.92" />
+    </g>
+  )
+}
+
+function MoveBadge({ square, grade, orientation }: { square: string; grade: Grade; orientation: Color }) {
+  const at = point(square, orientation)
+  const color = GRADE_COLOR[grade]
+  return (
+    <span
+      className="pointer-events-none absolute z-30 flex size-4 items-center justify-center rounded-full text-[8px] font-medium text-white"
+      style={{
+        left: `${(at.x + 0.62) * 12.5}%`,
+        top: `${at.y * 12.5}%`,
+        background: color,
+      }}
+    >
+      {grade === "livro" ? <BookGlyph /> : gradeGlyph(grade)}
+    </span>
+  )
+}
+
+function BookGlyph() {
+  return (
+    <svg viewBox="0 0 12 12" className="size-2.5" aria-hidden>
+      <path
+        d="M1.6 2.2h3.4c.5 0 1 .2 1.2.7.2-.5.7-.7 1.2-.7h3V9.6H7.4c-.4 0-.8.2-1.2.5-.4-.3-.8-.5-1.2-.5H1.6V2.2z"
+        fill="currentColor"
+      />
     </svg>
   )
 }

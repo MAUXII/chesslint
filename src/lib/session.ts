@@ -25,6 +25,10 @@ export type Mark = {
   ply: number
   matched: boolean
   drop: number | null
+  book: boolean
+  best: string | null
+  bestSan: string | null
+  sacrifice: boolean
 }
 
 export type ArchivedGame = {
@@ -35,6 +39,7 @@ export type ArchivedGame = {
   sans: string[]
   notes: Note[]
   marks: Mark[]
+  evals: (number | null)[]
   player: Color
 }
 
@@ -54,6 +59,7 @@ export type Session = {
   sound: boolean
   welcomed: boolean
   drillId: string | null
+  evals: (number | null)[]
   archive: ArchivedGame[]
 }
 
@@ -91,6 +97,7 @@ export function defaultSession(): Session {
     sound: true,
     welcomed: false,
     drillId: null,
+    evals: [],
     archive: [],
   }
 }
@@ -121,7 +128,7 @@ export function loadSession(raw: string | null): Session | null {
       archive: Array.isArray(data.archive)
         ? data.archive.slice(0, ARCHIVE_LIMIT).map((item) => {
             const game = item as ArchivedGame
-            return { ...game, marks: readMarks(game?.marks) }
+            return { ...game, marks: readMarks(game?.marks), evals: readEvals(game?.evals) }
           })
         : [],
       boardTheme: isBoardTheme(data.boardTheme) ? data.boardTheme : base.boardTheme,
@@ -130,6 +137,7 @@ export function loadSession(raw: string | null): Session | null {
       sound: data.sound !== false,
       welcomed: data.welcomed === true,
       drillId: drillById(data.drillId) ? data.drillId! : null,
+      evals: readEvals(data.evals),
     }
   } catch {
     return null
@@ -168,8 +176,23 @@ function readMarks(value: unknown): Mark[] {
     const mark = item as Partial<Mark>
     if (typeof mark.ply !== "number" || typeof mark.matched !== "boolean") return []
     const drop = typeof mark.drop === "number" && Number.isFinite(mark.drop) ? mark.drop : null
-    return [{ ply: mark.ply, matched: mark.matched, drop }]
+    return [
+      {
+        ply: mark.ply,
+        matched: mark.matched,
+        drop,
+        book: mark.book === true,
+        best: typeof mark.best === "string" ? mark.best : null,
+        bestSan: typeof mark.bestSan === "string" ? mark.bestSan : null,
+        sacrifice: mark.sacrifice === true,
+      },
+    ]
   })
+}
+
+function readEvals(value: unknown): (number | null)[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => (typeof item === "number" && Number.isFinite(item) ? item : null))
 }
 
 export function pushArchive(session: Session, savedAt = Date.now()): ArchivedGame[] {
@@ -182,6 +205,7 @@ export function pushArchive(session: Session, savedAt = Date.now()): ArchivedGam
     sans: session.sans,
     notes: session.notes,
     marks: session.marks,
+    evals: session.evals,
     player: session.player,
   }
   return [item, ...session.archive].slice(0, ARCHIVE_LIMIT)
@@ -194,6 +218,7 @@ export function freshPosition(session: Session, patch: Partial<Session> = {}): S
     sans: [],
     notes: [],
     marks: [],
+    evals: [],
     drillId: null,
     archive: pushArchive(session),
     ...patch,

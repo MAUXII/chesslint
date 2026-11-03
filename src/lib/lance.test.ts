@@ -9,6 +9,7 @@ import { resolveHuman, plyOf } from "@/lib/human"
 import { pickNatural, scoreNatural } from "@/lib/natural"
 import { formatCp, sanPt } from "@/lib/notation"
 import { reducer, initialState } from "@/lib/reducer"
+import { evalSeries, explainLine, formatReviewCp, gradeLine, gradeOf, isLastBook, isSacrifice } from "@/lib/review"
 import { isOpenWater } from "@/lib/sea"
 import { dropLine, fenBefore, loadSession } from "@/lib/session"
 
@@ -152,14 +153,33 @@ describe("revisão", () => {
   it("guarda zero quando o lance é o do motor", () => {
     let state = reducer(initialState, { type: "analysis", analysis })
     state = reducer(state, { type: "user-move", san: "e4" })
-    expect(state.session.marks[0]).toEqual({ ply: 1, matched: true, drop: 0 })
+    expect(state.session.marks[0]).toEqual({
+      ply: 1,
+      matched: true,
+      drop: 0,
+      book: true,
+      best: "e2e4",
+      bestSan: "e4",
+      sacrifice: false,
+    })
+    expect(gradeOf(state.session.marks[0])).toBe("livro")
+    expect(state.session.evals[0]).toBe(40)
     expect(centipawnLoss(analysis, "e2e4")).toBe(0)
   })
 
   it("guarda a queda quando o lance está na linha", () => {
     let state = reducer(initialState, { type: "analysis", analysis })
     state = reducer(state, { type: "user-move", san: "d4" })
-    expect(state.session.marks[0]).toEqual({ ply: 1, matched: false, drop: 30 })
+    expect(state.session.marks[0]).toEqual({
+      ply: 1,
+      matched: false,
+      drop: 30,
+      book: false,
+      best: "e2e4",
+      bestSan: "e4",
+      sacrifice: false,
+    })
+    expect(gradeOf(state.session.marks[0])).toBe("imprecisao")
     expect(dropLine(state.session.marks, state.session.sans)).toBe(
       "A avaliação caiu mais no lance 1, d4, 0,3 peões.",
     )
@@ -168,14 +188,70 @@ describe("revisão", () => {
   it("deixa a queda em branco quando o lance não entrou na busca", () => {
     let state = reducer(initialState, { type: "analysis", analysis })
     state = reducer(state, { type: "user-move", san: "a3" })
-    expect(state.session.marks[0]).toEqual({ ply: 1, matched: false, drop: null })
+    expect(state.session.marks[0]).toEqual({
+      ply: 1,
+      matched: false,
+      drop: null,
+      book: false,
+      best: "e2e4",
+      bestSan: "e4",
+      sacrifice: false,
+    })
+    expect(gradeOf(state.session.marks[0])).toBeNull()
     expect(dropLine(state.session.marks, state.session.sans)).toBeNull()
   })
 
   it("lê uma marca antiga sem a queda", () => {
     const loaded = loadSession(JSON.stringify({ startFen: START, sans: ["e4"], marks: [{ ply: 1, matched: true }] }))
-    expect(loaded?.marks[0]).toEqual({ ply: 1, matched: true, drop: null })
+    expect(loaded?.marks[0]).toEqual({
+      ply: 1,
+      matched: true,
+      drop: null,
+      book: false,
+      best: null,
+      bestSan: null,
+      sacrifice: false,
+    })
     expect(loaded?.drillId).toBeNull()
+  })
+})
+
+describe("classe do lance", () => {
+  const base = { ply: 1, matched: false, drop: null, book: false, best: null, bestSan: null, sacrifice: false }
+
+  it("separa livro, brilhante e vacilo", () => {
+    expect(gradeOf({ ...base, book: true, matched: true, drop: 0 })).toBe("livro")
+    expect(gradeOf({ ...base, sacrifice: true, matched: true, drop: 0 })).toBe("brilhante")
+    expect(isSacrifice("b", "p")).toBe(true)
+    expect(isSacrifice("n", "p")).toBe(false)
+    expect(isSacrifice("q", "r")).toBe(true)
+    expect(gradeOf({ ...base, drop: 10 })).toBe("excelente")
+    expect(gradeOf({ ...base, drop: 50 })).toBe("imprecisao")
+    expect(gradeOf({ ...base, drop: 120 })).toBe("erro")
+    expect(gradeOf({ ...base, drop: 250 })).toBe("vacilo")
+  })
+
+  it("marca só o último lance que ainda está no livro", () => {
+    const marks = [
+      { ...base, ply: 1, book: true },
+      { ...base, ply: 3, book: true },
+      { ...base, ply: 5, book: false, drop: 40 },
+    ]
+    expect(isLastBook(marks, 1)).toBe(false)
+    expect(isLastBook(marks, 3)).toBe(true)
+    expect(isLastBook(marks, 5)).toBe(false)
+    expect(gradeLine("c3", "livro", true)).toBe("c3 é o último lance de livro")
+    expect(gradeLine("Nxc3", "melhor", false)).toBe("Cxc3 é o melhor")
+    expect(gradeLine("Bxg6+", "brilhante", false)).toBe("Bxg6+ é brilhante")
+    expect(explainLine("vacilo", "Nf3", false)).toBe("O motor preferia Cf3.")
+    expect(formatReviewCp(83)).toBe("+0,83")
+    expect(formatReviewCp(-33)).toBe("−0,33")
+  })
+
+  it("completa a avaliação do lance com a queda", () => {
+    const marks = [{ ...base, ply: 1, drop: 80 }]
+    expect(evalSeries([40], marks, 1, "w")).toEqual([40, -40])
+    expect(evalSeries([40, null, -10], [{ ...base, ply: 1, drop: 0 }], 2, "w")).toEqual([40, 40, -10])
   })
 })
 
