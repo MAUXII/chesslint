@@ -306,7 +306,13 @@ export class AsciiRenderer {
   private frameId = 0;
   /** Fish cells bucketed by brightness, so each bucket is one fillStyle. */
   private fishBuckets: number[][] = FISH_ALPHAS.map(() => []);
-  private ripples: { x: number; y: number; age: number }[] = [];
+  private waveStep = 3;
+  private waveCols = 0;
+  private waveRows = 0;
+  private wave = new Float32Array(0);
+  private waveOld = new Float32Array(0);
+  private waveNext = new Float32Array(0);
+  private waveSources: { x: number; y: number; age: number }[] = [];
   private fishStyles = FISH_ALPHAS.map((_, index) => `rgba(255,255,255,${(0.06 + index * 0.03).toFixed(2)})`);
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -380,6 +386,13 @@ export class AsciiRenderer {
       this.dotFreq[i] = 0.3 + hash3(col, row, 37) * 1.1;
     }
     this.paintBackground();
+    this.waveStep = 3;
+    this.waveCols = Math.ceil(width / this.waveStep);
+    this.waveRows = Math.ceil(height / this.waveStep);
+    const wn = this.waveCols * this.waveRows;
+    this.wave = new Float32Array(wn);
+    this.waveOld = new Float32Array(wn);
+    this.waveNext = new Float32Array(wn);
   }
 
   private paintBackground() {
@@ -415,7 +428,9 @@ export class AsciiRenderer {
     this.drawHeat();
     this.drawFish();
     this.drawSharks();
-    this.drawRipples(dt);
+    this.stepWave(dt / 2);
+    this.stepWave(dt / 2);
+    this.drawWave();
   }
 
   // ── simulation → field ──────────────────────────────────────────────
@@ -447,8 +462,7 @@ export class AsciiRenderer {
         this.stamp(this.heat, e.x, e.y, 2, 1);
         this.stamp(this.energy, e.x, e.y, 3, 0.9);
       } else {
-        this.stamp(this.energy, e.x, e.y, 5, 0.7);
-        this.ripples.push({ x: e.x, y: e.y, age: 0 });
+        this.pokeWave(e.x, e.y);
       }
     }
     world.events.length = 0;
@@ -743,32 +757,61 @@ export class AsciiRenderer {
     }
   }
 
-  private drawRipples(dt: number) {
-    const { ctx, ripples } = this;
-    if (ripples.length === 0) return;
-    const keep: { x: number; y: number; age: number }[] = [];
-    ctx.fillStyle = "#fff";
-    for (const ripple of ripples) {
-      ripple.age += dt;
-      if (ripple.age > 1.35) continue;
-      keep.push(ripple);
-      const radius = 12 + ripple.age * 160;
-      const fade = 1 - ripple.age / 1.35;
-      for (const band of [0, 14]) {
-        ctx.globalAlpha = (band === 0 ? 0.28 : 0.14) * fade;
-        const ring = Math.max(4, radius - band);
-        for (let i = 0; i < 72; i++) {
-          if (BAYER[i & 15] > 8) continue;
-          const angle = (i / 72) * Math.PI * 2;
-          const j = ((i * 13) % 5) - 2;
-          const x = ripple.x + Math.cos(angle) * (ring + j);
-          const y = ripple.y + Math.sin(angle) * (ring * 0.42 + j);
-          ctx.fillRect(x, y, 1, 1);
+  private pokeWave(x: number, y: number) {
+    this.waveSources.push({ x, y, age: 0 });
+  }
+
+  private stepWave(dt: number) {
+    const { wave, waveOld, waveNext, waveCols, waveRows, waveStep, waveSources } = this;
+    if (waveCols === 0) return;
+    const c2 = 0.48;
+    const damp = 0.994;
+    for (let r = 1; r < waveRows - 1; r++) {
+      const row = r * waveCols;
+      for (let c = 1; c < waveCols - 1; c++) {
+        const i = row + c;
+        const lap = wave[i - 1] + wave[i + 1] + wave[i - waveCols] + wave[i + waveCols] - 4 * wave[i];
+        waveNext[i] = (2 * wave[i] - waveOld[i] + c2 * lap) * damp;
+      }
+    }
+    this.waveOld = wave;
+    this.wave = waveNext;
+    this.waveNext = waveOld;
+
+    const live: { x: number; y: number; age: number }[] = [];
+    for (const source of waveSources) {
+      source.age += dt;
+      if (source.age > 0.7) continue;
+      live.push(source);
+      const drive = Math.sin(source.age * 26) * Math.exp(-source.age * 2.4) * 0.62;
+      const c0 = Math.round(source.x / waveStep);
+      const r0 = Math.round(source.y / waveStep);
+      for (let r = r0 - 1; r <= r0 + 1; r++) {
+        for (let c = c0 - 1; c <= c0 + 1; c++) {
+          if (c < 1 || r < 1 || c >= waveCols - 1 || r >= waveRows - 1) continue;
+          const d = Math.hypot(c - c0, r - r0);
+          this.wave[r * waveCols + c] += drive * (1 - d / 2);
         }
       }
     }
+    this.waveSources = live;
+  }
+
+  private drawWave() {
+    const { ctx, wave, waveCols, waveRows, waveStep } = this;
+    ctx.fillStyle = "#fff";
+    for (let r = 1; r < waveRows - 1; r++) {
+      const row = r * waveCols;
+      for (let c = 1; c < waveCols - 1; c++) {
+        const h = wave[row + c];
+        if (h < 0.02) continue;
+        const tone = Math.min(1, h / 0.22);
+        if (tone < BAYER[(r & 3) * 4 + (c & 3)] / 16) continue;
+        ctx.globalAlpha = 0.16 + tone * 0.38;
+        ctx.fillRect(c * waveStep, r * waveStep, 1, 1);
+      }
+    }
     ctx.globalAlpha = 1;
-    this.ripples = keep;
   }
 
   private drawSharks() {

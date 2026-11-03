@@ -119,7 +119,7 @@ O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde 
 
 As peças são três conjuntos publicados, no estado em que foram desenhados. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0: o cavalo de perfil, a coroa e a torre com ameias, na linha do que se lê no Chess.com e no Chess in the Park, do Discord. Staunton é o Fantasy, e Celta é o Celtic, os dois de Maurizio Monge, MIT, na linha do Lichess. A nota está em `public/pieces/NOTICE.md`.
 
-No fundo da página o nado é o do [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT. O desenho é outro: caractere pequeno, só branco, apagado, com dither Bayer e um tremor de meio pixel. Sem grade e sem cor. O cardume é curto. Um clique abre dois anéis elípticos, também apagados, e empurra o cardume. Se o sistema pedir menos movimento, o oceano para num quadro só e o clique não abre anel.
+No fundo da página o nado é o do [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT. O desenho é outro: caractere pequeno, só branco, apagado, com dither Bayer e um tremor de meio pixel. Sem grade e sem cor. O cardume é curto. Um clique empurra a altura da água. A crista anda para fora, em dither branco, e some. Dois cliques se cruzam. Se o sistema pedir menos movimento, o oceano para num quadro só e o clique não abre anel.
 
 A barra de avaliação é fina, à esquerda do tabuleiro, preenchida de baixo para cima do ponto de vista das brancas. Avaliação em peões com vírgula (`+0,4`). Mate em n lances quando a linha é de mate.
 

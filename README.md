@@ -28,6 +28,6 @@ As peças estão em `public/pieces`, com a licença em `public/pieces/NOTICE.md`
 
 As regras são o [chess.js](https://github.com/jhlywa/chess.js). O motor é o Stockfish 19 em WASM, pelo pacote [stockfish.js](https://github.com/nmrugg/stockfish.js), GPL-3.0. O app fala com ele por UCI.
 
-O fundo nada com o [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT, de drewdi, em `src/vendor/ascii-sharks`. No Lance o desenho é branco, pequeno e apagado. Um clique abre um anel na água.
+O fundo nada com o [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT, de drewdi, em `src/vendor/ascii-sharks`. No Lance o desenho é branco, pequeno e apagado. Um clique abre uma onda que anda e some.
 
 A partida, as notas, o som e a primeira visita ficam em `localStorage`, na chave `lance.session.v1`.

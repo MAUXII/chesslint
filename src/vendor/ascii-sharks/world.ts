@@ -210,18 +210,17 @@ export class World {
 
   splash(x: number, y: number) {
     this.events.push({ kind: "splash", x, y });
-    const r = 240;
+    const r = 90;
     for (const f of this.fish) {
       if (!f.alive) continue;
       const dx = f.x - x;
       const dy = f.y - y;
       const d = Math.hypot(dx, dy);
       if (d > r || d < 1e-3) continue;
-      // Flash expansion: everybody nearby bolts straight out.
-      const k = (1 - d / r) * 260;
+      const k = (1 - d / r) * 36;
       f.vx += (dx / d) * k;
       f.vy += (dy / d) * k;
-      f.alarm = 1;
+      f.alarm = Math.max(f.alarm, 0.35);
     }
   }
 
