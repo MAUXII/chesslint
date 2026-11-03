@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Geist } from "next/font/google"
 
-import { DitherField } from "@/components/dither-field"
+import { AsciiSea } from "@/components/ascii-sea"
 import { cn } from "@/lib/utils"
 import "./globals.css"
 
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={cn("dark h-full bg-background antialiased", geist.variable)}>
       <body className="min-h-full bg-transparent font-sans text-foreground antialiased">
-        <DitherField />
+        <AsciiSea />
         {children}
       </body>
     </html>

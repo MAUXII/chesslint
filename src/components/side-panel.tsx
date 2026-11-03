@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import { PieceArt } from "@/components/pieces"
 import { SpringSwitch } from "@/components/spring-switch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -433,6 +432,13 @@ function Game({
   const notePly = !atLive && viewPly ? viewPly : session.sans.length
   const noteSan = notePly > 0 ? session.sans[notePly - 1] : null
   const playing = situation(session)
+  const listRef = useRef<HTMLOListElement>(null)
+
+  useEffect(() => {
+    if (!atLive) return
+    const list = listRef.current
+    list?.parentElement?.scrollTo({ top: list.scrollHeight })
+  }, [atLive, session.sans.length])
 
   return (
     <>
@@ -468,7 +474,7 @@ function Game({
       )}
 
       <div className="space-y-1 text-[13px] leading-5">
-        <p className="tabular-nums text-muted-foreground">Avaliação {evalText}</p>
+        {evalText !== "—" && <p className="tabular-nums text-muted-foreground">Avaliação {evalText}</p>}
         {session.assistance === "livre" && reviewText && <p>{reviewText}</p>}
         {session.assistance === "livre" && (
           <button
@@ -517,13 +523,13 @@ function Game({
 
       <Separator />
 
-      <div>
-        <p className="mb-1.5 text-[13px] text-muted-foreground">Lances</p>
+      <section>
+        <p className="mb-1.5 text-[13px] font-medium">Lances</p>
         {session.sans.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">A partida ainda não começou.</p>
         ) : (
-          <ScrollArea className="max-h-36">
-            <ol className="space-y-0.5 pr-2 text-[13px]">
+          <div className="max-h-44 overflow-y-auto rounded-[6px] border border-border px-2 py-1">
+            <ol ref={listRef} className="space-y-0.5 text-[13px]">
               {rows(session.sans).map((row) => (
                 <li key={row.n} className="grid grid-cols-[1.5rem_1fr_1fr] gap-1">
                   <span className="text-muted-foreground">{row.n}</span>
@@ -544,20 +550,15 @@ function Game({
                 </li>
               ))}
             </ol>
-          </ScrollArea>
+          </div>
         )}
-      </div>
+      </section>
 
-      <Separator />
-
-      <div className="space-y-2">
-        <p className="text-[13px] text-muted-foreground">Caderno</p>
-        <p className="text-[13px] leading-5 text-muted-foreground">
-          Uma nota curta no lance que acabou de acontecer. Fica neste navegador.
-        </p>
-        {session.notes.length === 0 && (
+      <section className="space-y-2 rounded-[6px] border border-border p-2.5">
+        <p className="text-[13px] font-medium">Caderno</p>
+        {session.notes.length === 0 && !noteSan && (
           <p className="text-[13px] leading-5 text-muted-foreground">
-            Nada anotado. Depois de um lance, escreva o que ficou.
+            Depois de um lance, escreva o que ficou. A nota fica neste navegador.
           </p>
         )}
         {session.notes.length > 0 && (
@@ -591,7 +592,7 @@ function Game({
             onDelete={() => onDeleteNote(notePly)}
           />
         )}
-      </div>
+      </section>
     </>
   )
 }
@@ -601,13 +602,16 @@ function situation(session: Session): { title: string; body: string } {
   if (session.mode === "estudo") {
     return {
       title: "Estudo",
-      body: `Os dois lados são seus. ${ASSIST[session.assistance]}`,
+      body: "Os dois lados são seus. Toque a peça e depois a casa.",
     }
   }
   const force = { iniciante: "iniciante", clube: "de clube", forte: "forte" }[session.strength]
   return {
     title: `Partida de ${color}`,
-    body: `Adversário ${force}. ${ASSIST[session.assistance]}`,
+    body:
+      session.player === "w"
+        ? `Você joga embaixo. O adversário ${force} responde.`
+        : `Você joga embaixo, de pretas. O adversário ${force} começa.`,
   }
 }
 

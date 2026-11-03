@@ -13,6 +13,7 @@ Três repositórios foram perguntados. Só um entra como código nosso. O motor 
 - [chess.js](https://github.com/jhlywa/chess.js), de jhlywa. É dependência direta, pacote `chess.js`. Faz as regras, a FEN, o PGN e o lance legal. Um lance ilegal lança erro; o Lance captura isso. O PGN sai em inglês. A notação na tela é portuguesa (C, B, T, D, R), convertida em cima do SAN.
 - [Stockfish](https://github.com/mcostalba/Stockfish), de mcostalba e o projeto oficial. O Lance não compila esse C++. O pacote npm `stockfish` é o [stockfish.js](https://github.com/nmrugg/stockfish.js), GPL-3.0: um build WASM de uma thread do Stockfish 19. A instalação copia esse arquivo para `public/stockfish`. O app fala com o worker só por UCI. Não usa `SharedArrayBuffer`.
 - [code100x/chess](https://github.com/code100x/chess). Não entra. É uma plataforma de partidas online, com React, Node, websockets, Redis e Postgres. O Lance não importa arquivo nenhum de lá. Os dois projetos usam chess.js, cada um do seu lado.
+- [ascii-sharks](https://github.com/stackedlol/ascii-sharks), de drewdi, MIT. Entra no fundo da página. O código está em `src/vendor/ascii-sharks`, com a licença. O Lance usa o nado e o desenho do tubarão. O clique continua no tabuleiro.
 
 O desenho das peças vem de outros repositórios, com licença, listados em `public/pieces/NOTICE.md`: Chessnut (Alexis Luengas, Apache 2.0), Fantasy e Celtic (Maurizio Monge, MIT, peças públicas do Lichess). Chess.com, o conjunto padrão do Lichess (Cburnett, GPL) e os modelos do Discord Chess in the Park não foram copiados.
 
@@ -118,7 +119,7 @@ O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde 
 
 As peças são três conjuntos publicados, no estado em que foram desenhados. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0: o cavalo de perfil, a coroa e a torre com ameias, na linha do que se lê no Chess.com e no Chess in the Park, do Discord. Staunton é o Fantasy, e Celta é o Celtic, os dois de Maurizio Monge, MIT, na linha do Lichess. A nota está em `public/pieces/NOTICE.md`.
 
-No fundo da página, vários tubarões-martelo vistos de cima atravessam a tela. A cabeça é larga, o corpo afunila, a cauda é bifurcada, e cada um entra com tamanho e rumo diferentes. O corpo é pixel de dither Bayer, um tom acima do fundo `#151618`, não um desenho chapado. Se o sistema pedir menos movimento, eles ficam parados. O som continua no interruptor.
+No fundo da página nada um oceano em ASCII, o [ascii-sharks](https://github.com/stackedlol/ascii-sharks) de drewdi, MIT, copiado em `src/vendor/ascii-sharks`. O corpo, a nadadeira e o rabo são os daquele desenho, e o nado é o da simulação de lá: a coluna segue a cabeça, o rabo bate, o cardume abre quando o tubarão chega. Há um tubarão clássico, um martelo e um martelo grande. O fundo da água é `#151618`. O clique fica no tabuleiro. Se o sistema pedir menos movimento, o oceano para num quadro só.
 
 A barra de avaliação é fina, à esquerda do tabuleiro, preenchida de baixo para cima do ponto de vista das brancas. Avaliação em peões com vírgula (`+0,4`). Mate em n lances quando a linha é de mate.
 

@@ -249,7 +249,7 @@ export function LanceScreen() {
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-[900px] flex-col px-4 py-5 sm:py-8">
-      <header className="mb-4 flex flex-col gap-3">
+      <header className="relative z-10 mb-4 flex flex-col gap-3 rounded-[6px] bg-background/90 px-2 py-1">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-[15px] font-medium tracking-tight">Lance</h1>
           <SectionTabs
