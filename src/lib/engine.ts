@@ -2,6 +2,10 @@ import type { Analysis, PvLine } from "@/lib/engine-parse"
 import { parseBestmove, parseInfo } from "@/lib/engine-parse"
 import { STRENGTH_PRESET, type Strength } from "@/lib/session"
 
+export function matchesJob(pendingId: number, job: number): boolean {
+  return pendingId === job
+}
+
 const ENGINE_URL = "/stockfish/stockfish-19-lite-single.js"
 const ANALYSIS_MS = 420
 
@@ -49,8 +53,12 @@ export class EngineClient {
     await this.waitFor((line) => line === "readyok")
   }
 
-  analyze(fen: string): Promise<Analysis | null> {
-    return this.request(fen, { skill: 20, movetime: ANALYSIS_MS, multipv: 3 })
+  analyze(fen: string, movetime = ANALYSIS_MS): Promise<Analysis | null> {
+    return this.request(fen, { skill: 20, movetime, multipv: 3 })
+  }
+
+  review(fen: string): Promise<Analysis | null> {
+    return this.request(fen, { skill: 20, movetime: 180, multipv: 2 })
   }
 
   reply(fen: string, strength: Strength): Promise<string | null> {
@@ -113,7 +121,7 @@ export class EngineClient {
     const pending = this.pending
     this.pending = null
     if (!pending) return
-    if (pending.id !== this.job) {
+    if (!matchesJob(pending.id, this.job)) {
       pending.resolve(null)
       return
     }

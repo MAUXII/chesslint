@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import { arrowStroke, isKnightLeap, knightCorner } from "@/lib/arrow"
+import { arrowShape, isKnightLeap, knightCorner } from "@/lib/arrow"
+import { defaultArrowSettings, visibleArrows, type BoardArrow } from "@/lib/arrows"
+import { matchesJob } from "@/lib/engine"
 import { OPENING_LINES, buildBook, lookupBook, openingTitle } from "@/lib/book"
 import { DRILLS, drillProgress } from "@/lib/drills"
 import { centipawnLoss, parseBestmove, parseInfo } from "@/lib/engine-parse"
@@ -9,7 +11,7 @@ import { resolveHuman, plyOf } from "@/lib/human"
 import { pickNatural, scoreNatural } from "@/lib/natural"
 import { formatCp, sanPt } from "@/lib/notation"
 import { reducer, initialState } from "@/lib/reducer"
-import { evalSeries, explainLine, formatReviewCp, gradeLine, gradeOf, isLastBook, isSacrifice } from "@/lib/review"
+import { accuracyOf, coachFor, evalSeries, explainLine, formatReviewCp, gradeLine, gradeOf, isLastBook, isSacrifice, winChance } from "@/lib/review"
 import { isOpenWater } from "@/lib/sea"
 import { dropLine, fenBefore, loadSession } from "@/lib/session"
 
@@ -22,11 +24,50 @@ describe("seta", () => {
     expect(knightCorner("b1", "c3")).toBe("b3")
     expect(knightCorner("b1", "d2")).toBe("d1")
     expect(knightCorner("e2", "e4")).toBeNull()
-    const bend = arrowStroke({ x: 6.5, y: 7.5 }, { x: 6.5, y: 5.5 }, { x: 5.5, y: 5.5 })
-    expect(bend.d.includes("Q")).toBe(true)
-    const straight = arrowStroke({ x: 4.5, y: 6.5 }, null, { x: 4.5, y: 4.5 })
-    expect(straight.d.includes("Q")).toBe(false)
-    expect(straight.head.split(" ").length).toBe(3)
+    const bend = arrowShape({ x: 6.5, y: 7.5 }, { x: 6.5, y: 5.5 }, { x: 5.5, y: 5.5 })
+    expect(bend.includes("Q")).toBe(true)
+    expect(bend.endsWith("Z")).toBe(true)
+    const straight = arrowShape({ x: 4.5, y: 6.5 }, null, { x: 4.5, y: 4.5 })
+    expect(straight.includes("Q")).toBe(false)
+    expect(straight.endsWith("Z")).toBe(true)
+    expect(straight.split("M").length - 1).toBe(1)
+  })
+
+  it("não desenha a seta do motor depois da resposta", () => {
+    const settings = defaultArrowSettings()
+    const base = {
+      mode: "partida" as const,
+      assistance: "melhor" as const,
+      drilling: false,
+      reviewing: false,
+      atLive: true,
+      gameOver: false,
+      settings,
+      bestUci: "e2e4",
+      threatUci: "e7e5",
+      reviewArrows: [] as BoardArrow[],
+      userArrows: [] as BoardArrow[],
+    }
+    expect(visibleArrows({ ...base, hintAsked: false })).toEqual([])
+    expect(visibleArrows({ ...base, hintAsked: true })).toEqual([
+      { from: "e2", to: "e4", color: "#7fa650", kind: "hint", label: "Melhor lance" },
+    ])
+    expect(visibleArrows({ ...base, assistance: "humano", hintAsked: true })[0]?.color).toBe("#2f6fad")
+    const review = [{ from: "e2", to: "e4", color: "#d14343", kind: "review" as const, label: "Lance jogado" }]
+    expect(visibleArrows({ ...base, hintAsked: false, reviewArrows: review })).toEqual([])
+    expect(visibleArrows({ ...base, hintAsked: false, reviewing: true, reviewArrows: review })).toEqual(review)
+    expect(visibleArrows({ ...base, mode: "estudo", drilling: true, hintAsked: false })).toEqual([])
+    expect(visibleArrows({ ...base, mode: "estudo", hintAsked: false })[0]?.kind).toBe("hint")
+    expect(
+      visibleArrows({
+        ...base,
+        mode: "estudo",
+        hintAsked: false,
+        settings: { ...settings, threats: true, analysis: false },
+      }).map((arrow) => arrow.kind),
+    ).toEqual(["threat"])
+    expect(matchesJob(1, 2)).toBe(false)
+    expect(matchesJob(2, 2)).toBe(true)
   })
 })
 
@@ -153,6 +194,7 @@ describe("revisão", () => {
   it("guarda zero quando o lance é o do motor", () => {
     let state = reducer(initialState, { type: "analysis", analysis })
     state = reducer(state, { type: "user-move", san: "e4" })
+    const before = winChance(40)
     expect(state.session.marks[0]).toEqual({
       ply: 1,
       matched: true,
@@ -161,6 +203,9 @@ describe("revisão", () => {
       best: "e2e4",
       bestSan: "e4",
       sacrifice: false,
+      swing: 0,
+      winBefore: before,
+      gap: before - winChance(10),
     })
     expect(gradeOf(state.session.marks[0])).toBe("livro")
     expect(state.session.evals[0]).toBe(40)
@@ -170,6 +215,7 @@ describe("revisão", () => {
   it("guarda a queda quando o lance está na linha", () => {
     let state = reducer(initialState, { type: "analysis", analysis })
     state = reducer(state, { type: "user-move", san: "d4" })
+    const before = winChance(40)
     expect(state.session.marks[0]).toEqual({
       ply: 1,
       matched: false,
@@ -178,8 +224,11 @@ describe("revisão", () => {
       best: "e2e4",
       bestSan: "e4",
       sacrifice: false,
+      swing: before - winChance(10),
+      winBefore: before,
+      gap: before - winChance(10),
     })
-    expect(gradeOf(state.session.marks[0])).toBe("imprecisao")
+    expect(gradeOf(state.session.marks[0])).toBe("bom")
     expect(dropLine(state.session.marks, state.session.sans)).toBe(
       "A avaliação caiu mais no lance 1, d4, 0,3 peões.",
     )
@@ -188,6 +237,7 @@ describe("revisão", () => {
   it("deixa a queda em branco quando o lance não entrou na busca", () => {
     let state = reducer(initialState, { type: "analysis", analysis })
     state = reducer(state, { type: "user-move", san: "a3" })
+    const before = winChance(40)
     expect(state.session.marks[0]).toEqual({
       ply: 1,
       matched: false,
@@ -196,6 +246,9 @@ describe("revisão", () => {
       best: "e2e4",
       bestSan: "e4",
       sacrifice: false,
+      swing: null,
+      winBefore: before,
+      gap: before - winChance(10),
     })
     expect(gradeOf(state.session.marks[0])).toBeNull()
     expect(dropLine(state.session.marks, state.session.sans)).toBeNull()
@@ -211,13 +264,27 @@ describe("revisão", () => {
       best: null,
       bestSan: null,
       sacrifice: false,
+      swing: null,
+      winBefore: null,
+      gap: null,
     })
     expect(loaded?.drillId).toBeNull()
   })
 })
 
 describe("classe do lance", () => {
-  const base = { ply: 1, matched: false, drop: null, book: false, best: null, bestSan: null, sacrifice: false }
+  const base = {
+    ply: 1,
+    matched: false,
+    drop: null as number | null,
+    book: false,
+    best: null,
+    bestSan: null,
+    sacrifice: false,
+    swing: null as number | null,
+    winBefore: null as number | null,
+    gap: null as number | null,
+  }
 
   it("separa livro, brilhante e vacilo", () => {
     expect(gradeOf({ ...base, book: true, matched: true, drop: 0 })).toBe("livro")
@@ -229,6 +296,21 @@ describe("classe do lance", () => {
     expect(gradeOf({ ...base, drop: 50 })).toBe("imprecisao")
     expect(gradeOf({ ...base, drop: 120 })).toBe("erro")
     expect(gradeOf({ ...base, drop: 250 })).toBe("vacilo")
+    expect(gradeOf({ ...base, drop: 40, swing: 0.01, winBefore: 0.5 })).toBe("excelente")
+    expect(gradeOf({ ...base, drop: 40, swing: 0.04, winBefore: 0.5 })).toBe("bom")
+    expect(gradeOf({ ...base, drop: 40, swing: 0.08, winBefore: 0.5 })).toBe("imprecisao")
+    expect(gradeOf({ ...base, drop: 40, swing: 0.15, winBefore: 0.5 })).toBe("erro")
+    expect(gradeOf({ ...base, drop: 40, swing: 0.25, winBefore: 0.9 })).toBe("omissao")
+    expect(gradeOf({ ...base, drop: 40, swing: 0.25, winBefore: 0.4 })).toBe("vacilo")
+    expect(gradeOf({ ...base, matched: true, drop: 0, swing: 0, gap: 0.1 })).toBe("grande")
+    const scored = [
+      { ...base, ply: 1, matched: true, drop: 0, swing: 0 },
+      { ...base, ply: 2, drop: 40, swing: 0.25, winBefore: 0.4 },
+    ]
+    expect(accuracyOf(scored, "w")).toEqual({ w: 100, b: 75 })
+    expect(coachFor(START, ["Nf3"], 1, "melhor", "Nf3", true, false)).toBe(
+      "Você desenvolveu uma peça e aumentou o controle do centro.",
+    )
   })
 
   it("marca só o último lance que ainda está no livro", () => {

@@ -16,9 +16,9 @@ export type WelcomePatch = Pick<
 type StepId = "cor" | "modo" | "ajuda" | "forca" | "casas" | "pecas" | "som"
 
 const ASSIST: Record<Assistance, string> = {
-  livre: "Nenhuma seta. Depois do lance, uma linha compara com o motor.",
-  melhor: "Seta verde no lance do motor. No cavalo, ela faz o L.",
-  humano: "Seta azul no lance natural. No cavalo, ela faz o L.",
+  livre: "Nenhuma seta sozinha. Se você pedir, o melhor lance aparece.",
+  melhor: "A seta verde só aparece quando você pede. No cavalo, ela faz o L.",
+  humano: "A seta azul só aparece quando você pede. No cavalo, ela faz o L.",
 }
 
 export function Welcome({ session, onDone }: { session: Session; onDone: (patch: WelcomePatch) => void }) {

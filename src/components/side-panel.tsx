@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react"
 
 import { PieceArt } from "@/components/pieces"
 import { SpringSwitch } from "@/components/spring-switch"
@@ -9,20 +9,24 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import type { ArrowSettings } from "@/lib/arrows"
 import { openingTitle } from "@/lib/book"
 import { DRILLS, drillById, drillProgress } from "@/lib/drills"
 import { START_FEN } from "@/lib/game"
-import { BOARD_THEMES, PIECE_STYLES, type BoardTheme, type PieceStyle } from "@/lib/look"
+import { BOARD_THEMES, DEFAULT_HIGHLIGHTS, isHex, PIECE_STYLES, type BoardTheme, type CustomColors, type Highlights, type PieceStyle } from "@/lib/look"
 import { formatDrop, sanPt } from "@/lib/notation"
 import {
   GRADE_COLOR,
   badgeGrade,
   evalSeries,
-  explainLine,
   formatReviewCp,
   gradeGlyph,
+  accuracyOf,
+  coachFor,
+  criticalPlies,
   gradeLine,
   gradeOf,
+  GRADE_NAME,
   isLastBook,
   moverColor,
   type Grade,
@@ -37,6 +41,7 @@ import {
   type Note,
   type NoteTag,
   type Session,
+  type SoundPreset,
   type Strength,
   type Tab,
 } from "@/lib/session"
@@ -45,9 +50,9 @@ const choiceClass =
   "flex-1 rounded-[6px] data-[state=on]:bg-foreground data-[state=on]:text-background"
 
 const ASSIST: Record<Assistance, string> = {
-  livre: "Nenhuma seta. Depois do seu lance, uma linha diz o que você jogou e o que o motor preferia, em peões.",
-  melhor: "Seta verde no lance do motor. No cavalo, a seta faz o L. A avaliação e três lances da linha vêm junto.",
-  humano: "Seta azul no lance natural. No cavalo, a seta faz o L. Na abertura vem de um livro. Fora dele, é o lance mais ordinário perto do melhor.",
+  livre: "Nenhuma seta sozinha. Se você pedir, o melhor lance aparece.",
+  melhor: "O melhor lance só aparece quando você pede. A avaliação e três lances da linha vêm junto.",
+  humano: "O lance natural só aparece quando você pede. Na abertura ele vem de um livro.",
 }
 
 const MODES: Record<Mode, string> = {
@@ -99,6 +104,20 @@ export function SidePanel({
   onOpenArchive,
   onLoadFen,
   onStartDrill,
+  reviewing,
+  reviewProgress,
+  hintAsked,
+  onAskHint,
+  onStartReview,
+  onStopReview,
+  onPractice,
+  practice,
+  onArrows,
+  onColors,
+  onHighlights,
+  onSoundPreset,
+  onVolume,
+  onAnalysisMs,
 }: {
   session: Session
   atLive: boolean
@@ -132,9 +151,23 @@ export function SidePanel({
   onOpenArchive: (id: string) => void
   onLoadFen: (fen: string) => string | null
   onStartDrill: (id: string) => void
+  reviewing: boolean
+  reviewProgress: { done: number; total: number } | null
+  hintAsked: boolean
+  onAskHint: () => void
+  onStartReview: () => void
+  onStopReview: () => void
+  onPractice: (ply: number) => void
+  practice: { best: string; san: string; solved: boolean | null } | null
+  onArrows: (settings: ArrowSettings) => void
+  onColors: (colors: CustomColors) => void
+  onHighlights: (highlights: Highlights) => void
+  onSoundPreset: (preset: SoundPreset) => void
+  onVolume: (board: number, ui: number) => void
+  onAnalysisMs: (ms: number) => void
 }) {
   return (
-    <aside data-sea-block="" className="flex w-full flex-col gap-3 rounded-[6px] border border-border bg-card p-3 lg:max-h-[calc(100dvh-7.5rem)] lg:w-[320px] lg:shrink-0 lg:overflow-y-auto">
+    <aside data-sea-block="" className="flex w-full flex-col gap-3 rounded-[6px] border border-border bg-card p-3 lg:max-h-[calc(100dvh-7.5rem)] lg:w-[360px] lg:shrink-0 lg:overflow-y-auto">
       {session.tab === "configurar" ? (
         <Config
           session={session}
@@ -150,6 +183,12 @@ export function SidePanel({
           onOpenArchive={onOpenArchive}
           onLoadFen={onLoadFen}
           onStartDrill={onStartDrill}
+          onArrows={onArrows}
+          onColors={onColors}
+          onHighlights={onHighlights}
+          onSoundPreset={onSoundPreset}
+          onVolume={onVolume}
+          onAnalysisMs={onAnalysisMs}
         />
       ) : (
         <Game
@@ -175,6 +214,14 @@ export function SidePanel({
           onSaveNote={onSaveNote}
           onDeleteNote={onDeleteNote}
           onOpenArchive={onOpenArchive}
+          reviewing={reviewing}
+          reviewProgress={reviewProgress}
+          hintAsked={hintAsked}
+          onAskHint={onAskHint}
+          onStartReview={onStartReview}
+          onStopReview={onStopReview}
+          onPractice={onPractice}
+          practice={practice}
         />
       )}
     </aside>
@@ -195,6 +242,12 @@ function Config({
   onOpenArchive,
   onLoadFen,
   onStartDrill,
+  onArrows,
+  onColors,
+  onHighlights,
+  onSoundPreset,
+  onVolume,
+  onAnalysisMs,
 }: {
   session: Session
   onPlayer: (player: Color) => void
@@ -209,9 +262,17 @@ function Config({
   onOpenArchive: (id: string) => void
   onLoadFen: (fen: string) => string | null
   onStartDrill: (id: string) => void
+  onArrows: (settings: ArrowSettings) => void
+  onColors: (colors: CustomColors) => void
+  onHighlights: (highlights: Highlights) => void
+  onSoundPreset: (preset: SoundPreset) => void
+  onVolume: (board: number, ui: number) => void
+  onAnalysisMs: (ms: number) => void
 }) {
   const [fen, setFen] = useState("")
   const [fenError, setFenError] = useState<string | null>(null)
+  const [group, setGroup] = useState<"aparencia" | "audio" | "jogo" | "motor">("aparencia")
+  const palette = session.boardTheme === "personalizado" ? session.customColors : BOARD_THEMES[session.boardTheme]
 
   return (
     <>
@@ -219,19 +280,37 @@ function Config({
         <h2 className="text-[15px] font-medium tracking-tight">Configurar</h2>
         <p className="text-[13px] leading-5 text-muted-foreground">
           O tabuleiro é a partida. A barra fina ao lado dele é a avaliação, das brancas para cima. Aqui você escolhe
-          como jogar e como o tabuleiro aparece. A seta, se você pedir uma ajuda, já aparece. O adversário só responde
-          em Jogo.
+          como jogar e como o tabuleiro aparece. Na partida, a seta do motor só entra quando você pede. O adversário só
+          responde em Jogo.
         </p>
       </div>
-      <Button className="w-full" onClick={() => onTab("jogo")}>
+      <Button className="h-10 w-full" onClick={() => onTab("jogo")}>
         Ir para o jogo
       </Button>
+      <div role="tablist" aria-label="Configuração" className="flex flex-wrap gap-3">
+        {(
+          [
+            ["aparencia", "Aparência"],
+            ["audio", "Áudio"],
+            ["jogo", "Jogo"],
+            ["motor", "Motor"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={group === id}
+            onClick={() => setGroup(id)}
+            className={group === id ? "text-[13px] text-white" : "text-[13px] text-white/35"}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <Field title="Treino" hint="Uma posição para achar o lance. O motor não responde enquanto o treino está aberto.">
-        <DrillList kind="exercicio" label="Exercício" onStart={onStartDrill} />
-        <DrillList kind="final" label="Final" onStart={onStartDrill} />
-      </Field>
-
+      {group === "aparencia" && (
+        <>
       <Field title="Tabuleiro" hint="A cor das casas. As peças continuam nas duas tintas.">
         <div className="grid grid-cols-2 gap-1.5">
           {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((id) => {
@@ -255,7 +334,30 @@ function Config({
         <p className="text-[13px] leading-5">{BOARD_THEMES[session.boardTheme].hint}</p>
       </Field>
 
-      <Field title="Peças" hint="O clássico é o diagrama limpo. O celta é o entalhe. O nítido é o contorno mais grosso.">
+      {session.boardTheme === "personalizado" && (
+        <Field title="Suas cores" hint="Claras, escuras e os realces. Fica gravado neste navegador.">
+          <BoardSwatch light={session.customColors.light} dark={session.customColors.dark} />
+          <HexRow label="Casas claras" value={session.customColors.light} onChange={(light) => onColors({ ...session.customColors, light })} />
+          <HexRow label="Casas escuras" value={session.customColors.dark} onChange={(dark) => onColors({ ...session.customColors, dark })} />
+          <HexRow label="Seleção" value={session.highlights.selected} onChange={(selected) => onHighlights({ ...session.highlights, selected })} />
+          <HexRow label="Último lance" value={session.highlights.last} onChange={(last) => onHighlights({ ...session.highlights, last })} />
+          <HexRow label="Destino legal" value={session.highlights.legal} onChange={(legal) => onHighlights({ ...session.highlights, legal })} />
+          <HexRow label="Xeque" value={session.highlights.check} onChange={(check) => onHighlights({ ...session.highlights, check })} />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onColors({ light: "#f0d9b5", dark: "#6b8f71" })
+              onHighlights({ ...DEFAULT_HIGHLIGHTS })
+            }}
+          >
+            Restaurar
+          </Button>
+        </Field>
+      )}
+
+      <Field title="Peças" hint="Diagrama, entalhe e contorno. A troca não reinicia a partida.">
         <div className="space-y-1.5">
           {(Object.keys(PIECE_STYLES) as PieceStyle[]).map((id) => {
             const style = PIECE_STYLES[id]
@@ -269,7 +371,7 @@ function Config({
                 onClick={() => onPieces(id)}
                 className="flex w-full items-center gap-2 rounded-[6px] border border-border p-1.5 text-left"
               >
-                <PieceSwatch style={id} theme={session.boardTheme} />
+                <PieceSwatch style={id} light={palette.light} dark={palette.dark} />
                 <span className="min-w-0">
                   <span className="block text-[13px]">{style.label}</span>
                   <span className="block text-[12px] leading-4 text-muted-foreground">{style.hint}</span>
@@ -278,13 +380,48 @@ function Config({
             )
           })}
         </div>
+        <PieceStrip style={session.pieceStyle} light={palette.light} dark={palette.dark} />
       </Field>
 
-      <Field title="Som" hint="Toque no lance, na escolha e no fim da partida. O kit é o de seno do snd.dev.">
+      <Field title="Setas" hint="Na partida, a seta do motor só aparece em Ver melhor lance.">
+        <ArrowRow label="Setas na análise" checked={session.arrowSettings.analysis} onChange={(analysis) => onArrows({ ...session.arrowSettings, analysis })} />
+        <ArrowRow label="Setas na revisão" checked={session.arrowSettings.review} onChange={(review) => onArrows({ ...session.arrowSettings, review })} />
+        <ArrowRow label="Último lance" checked={session.arrowSettings.lastMove} onChange={(lastMove) => onArrows({ ...session.arrowSettings, lastMove })} />
+        <ArrowRow label="Ameaças" checked={session.arrowSettings.threats} onChange={(threats) => onArrows({ ...session.arrowSettings, threats })} />
+        <ArrowRow label="Anotações" checked={session.arrowSettings.annotations} onChange={(annotations) => onArrows({ ...session.arrowSettings, annotations })} />
+      </Field>
+        </>
+      )}
+
+      {group === "audio" && (
+      <Field title="Som" hint="O mesmo kit de seno, em três volumes. O tabuleiro e a interface têm volumes separados.">
         <div className="flex items-center justify-between">
           <span className="text-[13px]">{session.sound ? "Ligado" : "Mudo"}</span>
           <SpringSwitch checked={session.sound} label="Som" onChange={onSound} />
         </div>
+        <Choice
+          label="Volume"
+          value={session.soundPreset}
+          onChange={onSoundPreset}
+          options={[
+            { value: "suave", label: "Suave" },
+            { value: "classico", label: "Clássico" },
+            { value: "tatil", label: "Tátil" },
+          ]}
+        />
+        <VolumeRow label="Tabuleiro" value={session.boardVolume} onChange={(board) => onVolume(board, session.uiVolume)} />
+        <VolumeRow label="Interface" value={session.uiVolume} onChange={(ui) => onVolume(session.boardVolume, ui)} />
+        <Button type="button" variant="outline" size="sm" onClick={() => onSoundPreset(session.soundPreset)}>
+          Ouvir
+        </Button>
+      </Field>
+      )}
+
+      {group === "jogo" && (
+        <>
+      <Field title="Treino" hint="Uma posição para achar o lance. O motor não responde enquanto o treino está aberto.">
+        <DrillList kind="exercicio" label="Exercício" onStart={onStartDrill} />
+        <DrillList kind="final" label="Final" onStart={onStartDrill} />
       </Field>
 
       <Field title="Sua cor" hint="O tabuleiro gira com a cor. Se a partida já andou, trocar começa outra.">
@@ -409,6 +546,26 @@ function Config({
           </ul>
         </Field>
       )}
+        </>
+      )}
+
+      {group === "motor" && (
+        <Field
+          title="Busca"
+          hint="O tempo da sugestão. A resposta do adversário continua na força escolhida. A linha da sugestão continua com três lances."
+        >
+          <Choice
+            label="Tempo"
+            value={String(session.analysisMs)}
+            onChange={(value) => onAnalysisMs(Number(value))}
+            options={[
+              { value: "280", label: "Curta" },
+              { value: "420", label: "Normal" },
+              { value: "700", label: "Longa" },
+            ]}
+          />
+        </Field>
+      )}
     </>
   )
 }
@@ -438,6 +595,14 @@ function Game({
   onSaveNote,
   onDeleteNote,
   onOpenArchive,
+  reviewing,
+  reviewProgress,
+  hintAsked,
+  onAskHint,
+  onStartReview,
+  onStopReview,
+  onPractice,
+  practice,
 }: {
   session: Session
   atLive: boolean
@@ -461,6 +626,14 @@ function Game({
   onSaveNote: (note: Note) => void
   onDeleteNote: (ply: number) => void
   onOpenArchive: (id: string) => void
+  reviewing: boolean
+  reviewProgress: { done: number; total: number } | null
+  hintAsked: boolean
+  onAskHint: () => void
+  onStartReview: () => void
+  onStopReview: () => void
+  onPractice: (ply: number) => void
+  practice: { best: string; san: string; solved: boolean | null } | null
 }) {
   const focus = !atLive && viewPly != null ? viewPly : session.sans.length
   const notePly = focus
@@ -537,7 +710,6 @@ function Game({
   function openPly(ply: number) {
     stopPlay()
     onView(ply)
-    setMoment("pagina")
   }
 
   function step(delta: number) {
@@ -570,7 +742,13 @@ function Game({
         <p className="text-[13px] leading-5 text-muted-foreground">{playing.body}</p>
       </div>
 
-      {!quiet && session.sans.length > 0 && (
+      {reviewing && reviewProgress && (
+        <p className="text-[13px] text-muted-foreground">
+          Análise {reviewProgress.done} de {reviewProgress.total}
+        </p>
+      )}
+
+      {reviewing && !quiet && session.sans.length > 0 && (
         <ReviewCard
           session={session}
           focus={focus}
@@ -591,7 +769,27 @@ function Game({
             onBack()
           }}
           onTogglePlay={togglePlay}
+          onSelect={(ply) => {
+            stopPlay()
+            if (ply >= session.sans.length) onBack()
+            else onView(ply)
+          }}
+          onPractice={() => onPractice(focus)}
         />
+      )}
+
+      {reviewing && reviewProgress && reviewProgress.done >= reviewProgress.total && (
+        <ReviewSummary session={session} result={result} startTurn={startTurn} />
+      )}
+
+      {practice && (
+        <p className="text-[13px] leading-5">
+          {practice.solved === true
+            ? "Esse é o lance guardado."
+            : practice.solved === false
+              ? `Ainda não. O lance guardado era ${sanPt(practice.san)}.`
+              : `Tente de novo. O lance guardado era ${sanPt(practice.san)}.`}
+        </p>
       )}
 
       {moment === "agora" && (
@@ -666,6 +864,27 @@ function Game({
             </div>
           )}
         </div>
+      )}
+
+      {!quiet && !reviewing && atLive && !result && (
+        <Button type="button" className="h-10 w-full" aria-pressed={hintAsked} onClick={onAskHint}>
+          {hintAsked ? "Ocultar o melhor lance" : "Ver melhor lance"}
+        </Button>
+      )}
+      {!quiet && !reviewing && session.sans.length > 0 && (
+        <Button
+          type="button"
+          variant={result ? "default" : "outline"}
+          className="h-10 w-full"
+          onClick={onStartReview}
+        >
+          Analisar partida
+        </Button>
+      )}
+      {reviewing && (
+        <Button type="button" variant="outline" className="h-10 w-full" onClick={onStopReview}>
+          Voltar
+        </Button>
       )}
 
       <div className="flex flex-wrap gap-1.5">
@@ -859,21 +1078,99 @@ function BoardSwatch({ light, dark }: { light: string; dark: string }) {
   )
 }
 
-function PieceSwatch({ style, theme }: { style: PieceStyle; theme: BoardTheme }) {
-  const colors = BOARD_THEMES[theme]
+function PieceSwatch({ style, light, dark }: { style: PieceStyle; light: string; dark: string }) {
   return (
     <span className="flex h-11 w-16 shrink-0 overflow-hidden rounded-[4px]" aria-hidden>
-      <span className="flex flex-1 items-center justify-center" style={{ background: colors.light }}>
+      <span className="flex flex-1 items-center justify-center" style={{ background: light }}>
         <span className="size-8">
           <PieceArt type="n" color="w" pieceStyle={style} />
         </span>
       </span>
-      <span className="flex flex-1 items-center justify-center" style={{ background: colors.dark }}>
+      <span className="flex flex-1 items-center justify-center" style={{ background: dark }}>
         <span className="size-8">
           <PieceArt type="n" color="b" pieceStyle={style} />
         </span>
       </span>
     </span>
+  )
+}
+
+function PieceStrip({ style, light, dark }: { style: PieceStyle; light: string; dark: string }) {
+  const types = ["k", "q", "r", "b", "n", "p"]
+  return (
+    <div className="grid grid-cols-6 overflow-hidden rounded-[4px]" aria-label="As doze peças">
+      {types.map((type) => (
+        <span key={`w${type}`} className="aspect-square p-0.5" style={{ background: light }}>
+          <PieceArt type={type} color="w" pieceStyle={style} />
+        </span>
+      ))}
+      {types.map((type) => (
+        <span key={`b${type}`} className="aspect-square p-0.5" style={{ background: dark }}>
+          <PieceArt type={type} color="b" pieceStyle={style} />
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function HexRow({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  const [focused, setFocused] = useState(false)
+  if (!focused && draft !== value) setDraft(value)
+  return (
+    <label className="flex items-center justify-between gap-2 text-[13px]">
+      <span>{label}</span>
+      <span className="flex items-center gap-1.5">
+        <input
+          type="color"
+          value={isHex(value) ? value : "#000000"}
+          aria-label={label}
+          onChange={(event) => onChange(event.target.value)}
+          className="size-7 cursor-pointer rounded-[4px] border border-border bg-transparent"
+        />
+        <Input
+          value={draft}
+          aria-label={`${label} em hexadecimal`}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false)
+            if (!isHex(draft)) setDraft(value)
+          }}
+          onChange={(event) => {
+            const next = event.target.value
+            setDraft(next)
+            if (isHex(next)) onChange(next)
+          }}
+          className="h-8 w-24 font-mono text-[12px]"
+        />
+      </span>
+    </label>
+  )
+}
+
+function ArrowRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[13px]">{label}</span>
+      <SpringSwitch checked={checked} label={label} onChange={onChange} />
+    </div>
+  )
+}
+
+function VolumeRow({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <label className="block text-[13px]">
+      {label}
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={Math.round(value * 100)}
+        aria-label={`Volume, ${label}`}
+        onChange={(event) => onChange(Number(event.target.value) / 100)}
+        className="mt-1 w-full accent-white"
+      />
+    </label>
   )
 }
 
@@ -1079,16 +1376,6 @@ function listedGrade(session: Session, ply: number): Grade | null {
   return badgeGrade(gradeOf(mark))
 }
 
-const GRADE_NAME: Record<Grade, string> = {
-  livro: "livro",
-  brilhante: "brilhante",
-  melhor: "melhor",
-  excelente: "excelente",
-  imprecisao: "imprecisão",
-  erro: "erro",
-  vacilo: "vacilo",
-}
-
 function figurine(san: string): string | null {
   if (san.startsWith("O-O")) return "k"
   const map: Record<string, string> = { K: "k", Q: "q", R: "r", B: "b", N: "n" }
@@ -1109,6 +1396,8 @@ function ReviewCard({
   onStart,
   onEnd,
   onTogglePlay,
+  onSelect,
+  onPractice,
 }: {
   session: Session
   focus: number
@@ -1123,6 +1412,8 @@ function ReviewCard({
   onStart: () => void
   onEnd: () => void
   onTogglePlay: () => void
+  onSelect: (ply: number) => void
+  onPractice: () => void
 }) {
   const san = focus > 0 ? session.sans[focus - 1] : null
   const mark = session.marks.find((item) => item.ply === focus) ?? null
@@ -1136,7 +1427,14 @@ function ReviewCard({
       : playerMove
         ? `${sanPt(san)} ainda sem classificação`
         : `${sanPt(san)} é lance do motor`
-  const explanation = grade ? explainLine(grade, mark?.bestSan ?? null, Boolean(mark?.matched), lastBook) : null
+  const explanation = grade
+    ? coachFor(session.startFen, session.sans, focus, grade, mark?.bestSan ?? null, Boolean(mark?.matched), lastBook)
+    : null
+  const retry =
+    Boolean(mark?.best && mark.bestSan) &&
+    (grade === "imprecisao" || grade === "erro" || grade === "vacilo" || grade === "omissao")
+  const critical = criticalPlies(session.marks)
+  const nextCritical = critical.find((ply) => ply > focus) ?? null
   const score = series[focus]
   const chip = typeof score === "number" ? formatReviewCp(score) : null
   const grades = series.map((_, index) => {
@@ -1161,14 +1459,24 @@ function ReviewCard({
         </Button>
         <Button
           type="button"
-          className="flex-[1.5] bg-[#7fa650] text-white hover:bg-[#8fb564]"
+          className="h-10 flex-[1.5] bg-[#7fa650] text-white hover:bg-[#8fb564]"
           onClick={onNext}
           disabled={atLive}
         >
           Próximo
         </Button>
       </div>
-      <EvalGraph series={series} grades={grades} active={focus} />
+      {retry && (
+        <Button type="button" variant="outline" className="w-full" onClick={onPractice}>
+          Tentar novamente
+        </Button>
+      )}
+      {nextCritical != null && (
+        <button type="button" className="text-left text-[13px] text-muted-foreground" onClick={() => onSelect(nextCritical)}>
+          Ir ao ponto do lance {nextCritical}
+        </button>
+      )}
+      <EvalGraph series={series} grades={grades} active={focus} onSelect={onSelect} />
       <div className="grid grid-cols-5 gap-1">
         <Transport label="Início" glyph="|◀" disabled={focus === 0} onClick={onStart} />
         <Transport label="Anterior" glyph="◀" disabled={focus === 0} onClick={() => onStep(-1)} />
@@ -1202,10 +1510,12 @@ function EvalGraph({
   series,
   grades,
   active,
+  onSelect,
 }: {
   series: (number | null)[]
   grades: (Grade | null)[]
   active: number
+  onSelect: (ply: number) => void
 }) {
   const points = series.flatMap((cp, index) => (typeof cp === "number" ? [{ index, cp }] : []))
   if (points.length < 2) return null
@@ -1230,8 +1540,30 @@ function EvalGraph({
   }
   if (current) segments.push(current)
 
+  function pick(event: PointerEvent<SVGSVGElement>) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    if (rect.width === 0) return
+    const x = ((event.clientX - rect.left) / rect.width) * 100
+    let chosen = points[0]
+    let distance = Number.POSITIVE_INFINITY
+    for (const point of points) {
+      const next = Math.abs(xOf(point.index) - x)
+      if (next < distance) {
+        distance = next
+        chosen = point
+      }
+    }
+    if (chosen) onSelect(chosen.index)
+  }
+
   return (
-    <svg viewBox="0 0 100 36" className="h-16 w-full" role="img" aria-label="Avaliação da partida">
+    <svg
+      viewBox="0 0 100 36"
+      className="h-16 w-full touch-none"
+      role="img"
+      aria-label="Avaliação da partida"
+      onPointerDown={pick}
+    >
       <rect x="0" y="4" width="100" height={mid - 4} fill="rgba(255,255,255,0.04)" />
       <rect x="0" y={mid} width="100" height={32 - mid} fill="rgba(0,0,0,0.28)" />
       <line x1="0" y1={mid} x2="100" y2={mid} stroke="rgba(255,255,255,0.28)" strokeWidth="0.35" />
@@ -1252,6 +1584,41 @@ function EvalGraph({
         )
       })}
     </svg>
+  )
+}
+
+function ReviewSummary({
+  session,
+  result,
+  startTurn,
+}: {
+  session: Session
+  result: string | null
+  startTurn: "w" | "b"
+}) {
+  const accuracy = accuracyOf(session.marks, startTurn)
+  const counts = new Map<Grade, number>()
+  for (const mark of session.marks) {
+    const grade = gradeOf(mark)
+    if (!grade) continue
+    counts.set(grade, (counts.get(grade) ?? 0) + 1)
+  }
+  const listed = [...counts.entries()]
+  return (
+    <section className="space-y-1 text-[13px] leading-5" aria-label="Resumo da análise">
+      <p>
+        {result ?? "Partida em andamento"} · {session.sans.length} {session.sans.length === 1 ? "lance" : "lances"}
+      </p>
+      <p>
+        Precisão estimada do Lance: brancas {accuracy.w == null ? "—" : `${accuracy.w}%`}, pretas{" "}
+        {accuracy.b == null ? "—" : `${accuracy.b}%`}.
+      </p>
+      {listed.length > 0 && (
+        <p className="text-muted-foreground">
+          {listed.map(([grade, count]) => `${count} ${GRADE_NAME[grade]}`).join(" · ")}
+        </p>
+      )}
+    </section>
   )
 }
 

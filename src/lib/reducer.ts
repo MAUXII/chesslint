@@ -1,12 +1,14 @@
+import type { ArrowSettings } from "@/lib/arrows"
 import { lookupBook } from "@/lib/book"
 import { drillById } from "@/lib/drills"
-import { centipawnLoss, toWhite, type Analysis } from "@/lib/engine-parse"
-import { isSacrifice } from "@/lib/review"
+import { centipawnLoss, moverCp, toWhite, type Analysis } from "@/lib/engine-parse"
+import { isSacrifice, winChance } from "@/lib/review"
 import { safeMove, replay } from "@/lib/game"
 import { formatMoverScore, uciParts } from "@/lib/notation"
 import {
   analysisMatches,
   defaultSession,
+  fenBefore,
   freshPosition,
   pushArchive,
   undoCount,
@@ -19,6 +21,9 @@ import {
   type BoardTheme,
   type PieceStyle,
   type Tab,
+  type CustomColors,
+  type Highlights,
+  type SoundPreset,
 } from "@/lib/session"
 
 export type Review = {
@@ -40,6 +45,9 @@ export type State = {
   replyFailed: boolean
   reviewLine: Review | null
   viewPly: number | null
+  reviewing: boolean
+  reviewProgress: { done: number; total: number } | null
+  practice: { best: string; san: string; solved: boolean | null } | null
 }
 
 export type Action =
@@ -70,6 +78,16 @@ export type Action =
   | { type: "delete-note"; ply: number }
   | { type: "open-archive"; id: string }
   | { type: "start-drill"; id: string }
+  | { type: "set-arrows"; settings: ArrowSettings }
+  | { type: "set-colors"; colors: CustomColors }
+  | { type: "set-highlights"; highlights: Highlights }
+  | { type: "set-sound-preset"; preset: SoundPreset }
+  | { type: "set-volume"; board: number; ui: number }
+  | { type: "set-analysis-ms"; ms: number }
+  | { type: "start-review" }
+  | { type: "stop-review" }
+  | { type: "review-step"; positionPly: number; analysis: Analysis | null }
+  | { type: "practice"; ply: number }
 
 export const initialState: State = {
   hydrated: false,
@@ -80,6 +98,9 @@ export const initialState: State = {
   replyFailed: false,
   reviewLine: null,
   viewPly: null,
+  reviewing: false,
+  reviewProgress: null,
+  practice: null,
 }
 
 export function reducer(state: State, action: Action): State {
@@ -159,6 +180,40 @@ export function reducer(state: State, action: Action): State {
       return openArchive(state, action.id)
     case "start-drill":
       return startDrill(state, action.id)
+    case "set-arrows":
+      return { ...state, session: { ...state.session, arrowSettings: action.settings } }
+    case "set-colors":
+      return { ...state, session: { ...state.session, customColors: action.colors, boardTheme: "personalizado" } }
+    case "set-highlights":
+      return { ...state, session: { ...state.session, highlights: action.highlights } }
+    case "set-sound-preset":
+      return { ...state, session: { ...state.session, soundPreset: action.preset } }
+    case "set-volume":
+      return { ...state, session: { ...state.session, boardVolume: action.board, uiVolume: action.ui } }
+    case "set-analysis-ms":
+      return { ...state, session: { ...state.session, analysisMs: action.ms } }
+    case "start-review":
+      if (state.session.sans.length === 0) return state
+      return {
+        ...state,
+        reviewing: true,
+        reviewProgress: { done: 0, total: state.session.sans.length + 1 },
+        viewPly: 0,
+      }
+    case "stop-review":
+      return { ...state, reviewing: false, reviewProgress: null, viewPly: null }
+    case "review-step":
+      if (!action.analysis) {
+        const total = state.session.sans.length + 1
+        return {
+          ...state,
+          reviewing: true,
+          reviewProgress: { done: Math.min(total, action.positionPly + 1), total },
+        }
+      }
+      return applyReviewStep(state, action.positionPly, action.analysis)
+    case "practice":
+      return startPractice(state, action.ply)
     default:
       return state
   }
@@ -175,16 +230,21 @@ function applyUserMove(state: State, san: string): State {
   if (analysisMatches(state.analysis, before) && state.analysis?.best) {
     const same = move.lan === state.analysis.best
     const bestSan = sanAt(before, state.analysis.best) ?? state.analysis.best
+    const drop = centipawnLoss(state.analysis, move.lan)
+    const judged = judgeMove(state.analysis, drop)
     marks = [
       ...marks,
       {
         ply: state.session.sans.length + 1,
         matched: same,
-        drop: centipawnLoss(state.analysis, move.lan),
+        drop,
         book: lookupBook(before) === move.lan,
         best: state.analysis.best,
         bestSan,
         sacrifice: isSacrifice(move.piece, move.captured),
+        swing: judged.swing,
+        winBefore: judged.winBefore,
+        gap: judged.gap,
       },
     ]
     const bestLine = state.analysis.lines.find((line) => line.pv[0] === state.analysis?.best)
@@ -211,6 +271,9 @@ function applyUserMove(state: State, san: string): State {
     thinking: false,
     replyFailed: false,
     viewPly: null,
+    practice: state.practice
+      ? { ...state.practice, solved: move.lan === state.practice.best }
+      : null,
   }
 }
 
@@ -258,6 +321,9 @@ function reset(state: State, session: Session): State {
     thinking: false,
     replyFailed: false,
     viewPly: null,
+    reviewing: false,
+    reviewProgress: null,
+    practice: null,
   }
 }
 
@@ -300,6 +366,73 @@ function startDrill(state: State, id: string): State {
       tab: "jogo",
     }),
   )
+}
+
+function judgeMove(analysis: Analysis, drop: number | null): {
+  swing: number | null
+  winBefore: number | null
+  gap: number | null
+} {
+  const best = analysis.lines.find((line) => line.pv[0] === analysis.best) ?? analysis.lines[0]
+  const second = analysis.lines.find((line) => line.multipv === 2)
+  if (!best) return { swing: null, winBefore: null, gap: null }
+  const before = moverCp(best)
+  const winBefore = winChance(before)
+  const gap = second ? Math.max(0, winBefore - winChance(moverCp(second))) : null
+  const swing = drop == null ? null : Math.max(0, winBefore - winChance(before - drop))
+  return { swing, winBefore, gap }
+}
+
+function applyReviewStep(state: State, positionPly: number, analysis: Analysis): State {
+  const chess = replay(state.session.startFen, state.session.sans.slice(0, positionPly))
+  const fen = chess.fen()
+  if (!analysisMatches(analysis, fen)) return state
+  const line = analysis.lines.find((item) => item.pv[0] === analysis.best) ?? analysis.lines[0]
+  const evals = state.session.evals.slice()
+  if (line) {
+    const white = toWhite(chess.turn(), line.cp, line.mate)
+    const score = white.mate != null ? (white.mate > 0 ? 900 : -900) : white.cp
+    if (score != null) evals[positionPly] = score
+  }
+  let marks = state.session.marks
+  const san = state.session.sans[positionPly]
+  if (san && analysis.best) {
+    const move = safeMove(chess, san)
+    if (move) {
+      const drop = centipawnLoss(analysis, move.lan)
+      const judged = judgeMove(analysis, drop)
+      const mark = {
+        ply: positionPly + 1,
+        matched: move.lan === analysis.best,
+        drop,
+        book: lookupBook(fen) === move.lan,
+        best: analysis.best,
+        bestSan: sanAt(fen, analysis.best) ?? analysis.best,
+        sacrifice: isSacrifice(move.piece, move.captured),
+        swing: judged.swing,
+        winBefore: judged.winBefore,
+        gap: judged.gap,
+      }
+      marks = [...marks.filter((item) => item.ply !== mark.ply), mark].sort((a, b) => a.ply - b.ply)
+    }
+  }
+  const total = state.session.sans.length + 1
+  return {
+    ...state,
+    session: { ...state.session, evals, marks },
+    reviewProgress: { done: Math.min(total, positionPly + 1), total },
+    reviewing: true,
+  }
+}
+
+function startPractice(state: State, ply: number): State {
+  const mark = state.session.marks.find((item) => item.ply === ply)
+  if (!mark?.best || !mark.bestSan) return state
+  const fen = fenBefore(state.session.startFen, state.session.sans, ply)
+  return {
+    ...reset(state, freshPosition(state.session, { startFen: fen, mode: "estudo", tab: "jogo" })),
+    practice: { best: mark.best, san: mark.bestSan, solved: null },
+  }
 }
 
 function sanAt(fen: string, uci: string): string | null {

@@ -71,7 +71,7 @@ posição → Stockfish no worker
 jogada → nota no lance, se você escrever
 ```
 
-O motor calcula em toda posição nova, na vez de quem está jogando. A seta só aparece se a assistência pedir. Na partida, a seta some na vez do adversário: a resposta não é anunciada.
+O motor calcula em toda posição nova, na vez de quem está jogando. Na partida, isso não vira seta. A seta do motor só entra depois de Ver melhor lance, na posição atual, e some quando a posição muda, quando a dica é desligada ou numa nova partida. No estudo, com as setas da análise ligadas, o melhor lance aparece na posição presente. A resposta do adversário nunca é anunciada com seta.
 
 A sugestão usa cerca de 400 ms. A resposta do adversário usa um pouco mais, conforme a força, para a partida ter um tempo de pensar.
 
@@ -79,11 +79,11 @@ Enquanto o WASM carrega, a coluna diz: "O motor está acordando." Se o arquivo n
 
 ## Assistência
 
-Livre. Nenhuma seta. Depois do seu lance, uma linha: o que você jogou e o que o motor preferia, em peões, quando o lance jogado estava entre as candidatas. Dá para calar essa linha. A contagem de coincidência continua.
+Livre. Nenhuma seta sozinha. Depois do seu lance, uma linha: o que você jogou e o que o motor preferia, em peões, quando o lance jogado estava entre as candidatas. Dá para calar essa linha. A contagem de coincidência continua. Se você pedir, o melhor lance aparece.
 
-Melhor. Seta verde no lance do Stockfish. Numa torre, bispo, dama, rei ou peão ela é reta, do centro da casa até a outra. No cavalo ela faz o L: primeiro a perna mais longa, com o canto arredondado, e a ponta na casa de destino. A avaliação em peões e três lances da linha vêm junto, em notação portuguesa (C, B, T, D, R).
+Melhor. A seta verde só aparece quando você pede, pelo botão Ver melhor lance. Numa torre, bispo, dama, rei ou peão ela é um caminho preenchido, do centro da casa até a outra. No cavalo ela faz o L: primeiro a perna mais longa, com o canto arredondado, e a ponta no mesmo contorno, no último trecho. A avaliação em peões e três lances da linha vêm junto, em notação portuguesa (C, B, T, D, R), quando a dica está pedida.
 
-Humano. A mesma seta, em azul, no lance natural.
+Humano. A mesma seta, em azul, no lance natural, e só quando pedida. No estudo, a seta da análise continua verde.
 
 - Na abertura, um livro pequeno embutido guarda as linhas mais jogadas. Em cada posição o livro tem um lance, o de maior peso entre as linhas que passam por ali.
 - Fora do livro, o Stockfish devolve três candidatas. O lance natural é a que está a até 0,35 peão da melhor e, dentro dessa janela, a mais ordinária: desenvolver cavalo ou bispo, rocar, e não sair com a dama cedo. Se a melhor já é essa, ou se nenhuma outra entra na janela, a tela diz que o lance natural coincide com o do motor.
@@ -117,7 +117,9 @@ Fundo `#151618`. Superfície `#1e1e20`. Texto branco, texto secundário `#888888
 
 O tabuleiro padrão é pedra: clara `#e4e0d8`, escura `#6f6a62`. Madeira, verde e tinta trocam só as casas. Casas sem raio. Moldura do tabuleiro, botões e campos com raio de 6px.
 
-As peças são três conjuntos publicados, no estado em que foram desenhados. Clássico é o de Colin M.L. Burnett, GPL-2.0 ou posterior: o cavalo de perfil, a coroa com cruz e a torre com ameias, o diagrama limpo na linha do Lichess. Celta é o Celtic, de Maurizio Monge, MIT. Nítido é o Chessnut, de Alexis Luengas, Apache 2.0. A nota está em `public/pieces/NOTICE.md`.
+As peças são três conjuntos publicados, no estado em que foram desenhados. Diagrama é o de Colin M.L. Burnett, GPL-2.0 ou posterior: o cavalo de perfil, a coroa com cruz e a torre com ameias. Entalhe é o Celtic, de Maurizio Monge, MIT. Contorno é o Chessnut, de Alexis Luengas, Apache 2.0. A prévia mostra as doze peças. Não há recoloração: o claro e o escuro já estão desenhados. A nota está em `public/pieces/NOTICE.md`.
+
+As casas têm Pedra, Madeira, Verde, Tinta, Creme e Azul, chapados, e um Personalizado com claras, escuras, seleção, último lance, destino legal e xeque. O som continua no mesmo kit: Suave, Clássico e Tátil são volumes desse kit, com o tabuleiro e a interface separados.
 
 No fundo da página o nado é o do [ascii-sharks](https://github.com/stackedlol/ascii-sharks), MIT. O desenho é outro: caractere pequeno, só branco, apagado, com dither Bayer e um tremor de meio pixel. Sem grade e sem cor. O cardume é curto. Um clique no fundo, fora do tabuleiro, da coluna e dos controles, empurra a altura da água. A crista anda para fora, em dither branco, e some. Dois cliques se cruzam. Clique em peça, casa ou na partida não mexe a água. Se o sistema pedir menos movimento, o oceano para num quadro só e o clique não abre anel.
 
@@ -133,7 +135,7 @@ Tipografia: Geist.
 
 Tudo fica no `localStorage` deste navegador, na chave `lance.session.v1`.
 
-A sessão guarda a FEN inicial, os lances, as notas, a cor, o modo, a assistência, a força, se a revisão está calada, o desenho do tabuleiro, o desenho das peças, a aba aberta, se o som está ligado, se a primeira visita já foi respondida, e a contagem de coincidência. Atualizar a página continua a mesma partida. Uma sessão antiga, sem essas marcas, abre as perguntas uma vez e deixa o som ligado.
+A sessão guarda a FEN inicial, os lances, as notas, a cor, o modo, a assistência, a força, se a linha do Livre está calada, o desenho do tabuleiro, as cores personalizadas, os realces, o desenho das peças, as setas (análise, revisão, último lance, ameaças e anotações), o preset e os volumes do som, o tempo da busca, a aba aberta, se o som está ligado, se a primeira visita já foi respondida, e a contagem de coincidência. Atualizar a página continua a mesma partida. Uma sessão antiga, sem essas marcas, abre as perguntas uma vez e deixa o som ligado.
 
 Nova partida arquiva a anterior, se houve lance ou nota, e fica com as doze últimas. A coluna lista essas partidas e reabre o PGN e as notas.
 
@@ -176,10 +178,10 @@ Catálogo grande de exercícios. Entram quatro posições escritas aqui: mate em
 O estudo que outros sites separam como produto pago está nesta tela, feito com o Stockfish e com o livro daqui.
 
 1. Coluna. Três momentos: Agora, Lista e Página. O resto fica quieto.
-2. Revisão. Cada lance seu ganha uma classe: livro, brilhante, melhor, excelente, imprecisão, erro ou vacilo. A seta do lance usa a cor da classe, reta, e em L no cavalo. A casa de saída fica marcada e a de chegada leva o símbolo. Se o lance foi ruim, a seta verde do motor fica por baixo. A coluna diz a classe, a avaliação em peões, uma frase e um Próximo. A lista leva o símbolo. O gráfico acompanha a avaliação, e os botões andam a partida: início, anterior, jogar, avançar e fim. A maior queda, em peões, continua escrita em Agora.
+2. Revisão. Ela abre em Analisar partida, no fim ou quando você pede. Durante a partida, tocar um lance só realça as casas. A classe do Lance sai da chance de vitória `1 / (1 + 10^(-cp/400))`, não da escala de outro site. O livro vem primeiro. Brilhante exige o sacrifício de bispo, torre ou dama que segue o melhor lance. As outras faixas usam a queda dessa chance: grande, melhor, excelente, bom, imprecisão, erro, omissão e vacilo. A seta colorida e, se a classe for ruim, a alternativa verde só aparecem com a revisão aberta. A coluna mostra o progresso, a classe, uma frase quando a posição dá um fato, e Próximo. O gráfico usa os pontos já calculados e, no clique ou toque, leva o tabuleiro àquele lance. No fim, o resumo traz o resultado, o número de lances, a contagem por classe e uma precisão estimada do Lance para cada cor: a média, por lado, de uma nota por lance. Livro, melhor, brilhante e grande valem 1. Se a queda da chance existe, a nota é 1 menos essa queda, limitada a zero. Sem ela, se a queda em centipeões existe, a nota é 1 menos essa queda dividida por 300, limitada a zero. Sem as duas, a nota é 1. Tentar novamente volta à posição anterior ao erro, em estudo, e compara o lance novo com o melhor lance guardado.
 3. Abertura. O nome da linha, pelo livro do Lance.
 4. Exercício. Mate em um, e um garfo. O catálogo grande continua de fora.
 5. Final. Rei e peão, e torre. O motor não responde enquanto o treino está aberto.
 6. A própria partida. Reabre do arquivo, com as notas e a queda da avaliação. A base de partidas de outras pessoas fica de fora.
 
-Ficam de fora, porque não são o tabuleiro: vídeo-aula, conta, anúncio, torneio, transmissão e um treinador que conversa. O Lance não copia o cliente de outro site.
+Ficam de fora neste ciclo: relógio, pré-lance, confirmação extra de lance, recolorir peças, áudio de madeira gravado, treinador por modelo de linguagem, catálogo grande de exercícios e qualquer desenho sem licença de redistribuição. Também ficam de fora vídeo-aula, conta, anúncio, torneio e transmissão. O Lance não copia o cliente de outro site.

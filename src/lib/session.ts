@@ -2,13 +2,27 @@ import { openingTitle } from "@/lib/book"
 import { drillById } from "@/lib/drills"
 import type { Analysis } from "@/lib/engine-parse"
 import { START_FEN, replay, safeMove } from "@/lib/game"
-import { isBoardTheme, isPieceStyle, type BoardTheme, type PieceStyle, type Tab } from "@/lib/look"
+import { defaultArrowSettings, readArrowSettings, type ArrowSettings } from "@/lib/arrows"
+import {
+  DEFAULT_HIGHLIGHTS,
+  isBoardTheme,
+  isHex,
+  isPieceStyle,
+  type BoardTheme,
+  type CustomColors,
+  type Highlights,
+  type PieceStyle,
+  type Tab,
+} from "@/lib/look"
 import { bookKey, formatDrop, sanPt, uciParts } from "@/lib/notation"
+
+export type { CustomColors, Highlights } from "@/lib/look"
 
 export type Color = "w" | "b"
 export type Mode = "partida" | "estudo"
 export type Assistance = "livre" | "melhor" | "humano"
 export type Strength = "iniciante" | "clube" | "forte"
+export type SoundPreset = "classico" | "suave" | "tatil"
 export type NoteTag = "ideia" | "erro" | "abertura" | "tatica" | "final"
 
 export type { BoardTheme, PieceStyle, Tab }
@@ -29,6 +43,9 @@ export type Mark = {
   best: string | null
   bestSan: string | null
   sacrifice: boolean
+  swing: number | null
+  winBefore: number | null
+  gap: number | null
 }
 
 export type ArchivedGame = {
@@ -61,6 +78,13 @@ export type Session = {
   drillId: string | null
   evals: (number | null)[]
   archive: ArchivedGame[]
+  arrowSettings: ArrowSettings
+  customColors: CustomColors
+  highlights: Highlights
+  soundPreset: SoundPreset
+  boardVolume: number
+  uiVolume: number
+  analysisMs: number
 }
 
 export const STORAGE_KEY = "lance.session.v1"
@@ -99,6 +123,13 @@ export function defaultSession(): Session {
     drillId: null,
     evals: [],
     archive: [],
+    arrowSettings: defaultArrowSettings(),
+    customColors: { light: "#f0d9b5", dark: "#6b8f71" },
+    highlights: { ...DEFAULT_HIGHLIGHTS },
+    soundPreset: "suave",
+    boardVolume: 0.7,
+    uiVolume: 0.7,
+    analysisMs: 420,
   }
 }
 
@@ -138,6 +169,13 @@ export function loadSession(raw: string | null): Session | null {
       welcomed: data.welcomed === true,
       drillId: drillById(data.drillId) ? data.drillId! : null,
       evals: readEvals(data.evals),
+      arrowSettings: readArrowSettings(data.arrowSettings),
+      customColors: readColors(data.customColors),
+      highlights: readHighlights(data.highlights),
+      soundPreset: data.soundPreset === "classico" || data.soundPreset === "tatil" ? data.soundPreset : "suave",
+      boardVolume: readVolume(data.boardVolume),
+      uiVolume: readVolume(data.uiVolume),
+      analysisMs: data.analysisMs === 280 || data.analysisMs === 700 ? data.analysisMs : 420,
     }
   } catch {
     return null
@@ -185,9 +223,42 @@ function readMarks(value: unknown): Mark[] {
         best: typeof mark.best === "string" ? mark.best : null,
         bestSan: typeof mark.bestSan === "string" ? mark.bestSan : null,
         sacrifice: mark.sacrifice === true,
+        swing: readUnit(mark.swing),
+        winBefore: readUnit(mark.winBefore),
+        gap: readUnit(mark.gap),
       },
     ]
   })
+}
+
+function readUnit(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function readVolume(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.7
+}
+
+function readColors(value: unknown): CustomColors {
+  const base = { light: "#f0d9b5", dark: "#6b8f71" }
+  if (!value || typeof value !== "object") return base
+  const raw = value as Partial<CustomColors>
+  return {
+    light: isHex(raw.light) ? raw.light : base.light,
+    dark: isHex(raw.dark) ? raw.dark : base.dark,
+  }
+}
+
+function readHighlights(value: unknown): Highlights {
+  const base = { ...DEFAULT_HIGHLIGHTS }
+  if (!value || typeof value !== "object") return base
+  const raw = value as Partial<Highlights>
+  return {
+    selected: isHex(raw.selected) ? raw.selected : base.selected,
+    last: isHex(raw.last) ? raw.last : base.last,
+    legal: isHex(raw.legal) ? raw.legal : base.legal,
+    check: isHex(raw.check) ? raw.check : base.check,
+  }
 }
 
 function readEvals(value: unknown): (number | null)[] {

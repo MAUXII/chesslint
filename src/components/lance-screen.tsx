@@ -22,9 +22,10 @@ import { EngineClient } from "@/lib/engine"
 import { parseFen, placements, replay, resultText, safeMove, squareOfKing, toPgn } from "@/lib/game"
 import { resolveHuman } from "@/lib/human"
 import { formatMoverScore, sanPt, uciParts } from "@/lib/notation"
+import { visibleArrows, type BoardArrow } from "@/lib/arrows"
 import { GRADE_COLOR, badgeGrade, gradeOf, type Grade } from "@/lib/review"
 import { initialState, reducer, type Review } from "@/lib/reducer"
-import { bootSnd, playSnd } from "@/lib/snd"
+import { bootSnd, playSnd, setSndMix } from "@/lib/snd"
 import {
   analysisMatches,
   defaultSession,
@@ -49,6 +50,8 @@ export function LanceScreen() {
   const [selected, setSelected] = useState<string | null>(null)
   const [pending, setPending] = useState<{ from: string; to: string } | null>(null)
   const [showEngine, setShowEngine] = useState(false)
+  const [hintFen, setHintFen] = useState<string | null>(null)
+  const [userArrows, setUserArrows] = useState<BoardArrow[]>([])
   const resultSeen = useRef<{ primed: boolean; last: string | null }>({ primed: false, last: null })
 
   const session = state.session
@@ -87,6 +90,14 @@ export function LanceScreen() {
   }, [])
 
   useEffect(() => {
+    setSndMix({
+      preset: session.soundPreset,
+      board: session.boardVolume,
+      ui: session.uiVolume,
+    })
+  }, [session.soundPreset, session.boardVolume, session.uiVolume])
+
+  useEffect(() => {
     if (!state.hydrated) return
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
   }, [state.hydrated, session])
@@ -117,7 +128,7 @@ export function LanceScreen() {
     if (!state.hydrated || state.engineStatus !== "ready") return
     const engine = engineRef.current
     if (!engine) return
-    if (!atLive || gameOver) {
+    if (state.reviewing || !atLive || gameOver) {
       dispatch({ type: "thinking", thinking: false })
       return
     }
@@ -125,13 +136,13 @@ export function LanceScreen() {
     if (session.tab === "configurar" || !session.welcomed) {
       dispatch({ type: "thinking", thinking: false })
       if (playerTurn) {
-        engine.analyze(liveFen).then((analysis) => {
+        engine.analyze(liveFen, session.analysisMs).then((analysis) => {
           if (!cancelled && analysis) dispatch({ type: "analysis", analysis })
         })
       }
     } else if (playerTurn) {
       dispatch({ type: "thinking", thinking: false })
-      engine.analyze(liveFen).then((analysis) => {
+      engine.analyze(liveFen, session.analysisMs).then((analysis) => {
         if (!cancelled && analysis) dispatch({ type: "analysis", analysis })
       })
     } else if (!state.replyFailed) {
@@ -154,6 +165,8 @@ export function LanceScreen() {
     session.strength,
     session.tab,
     session.welcomed,
+    session.analysisMs,
+    state.reviewing,
   ])
 
   const history = shown.history({ verbose: true })
@@ -195,12 +208,36 @@ export function LanceScreen() {
     setHeldEval({ fen: liveFen, cp: white.cp, mate: white.mate })
   }
   const human = session.assistance === "humano" && atLive ? resolveHuman(liveFen, matched) : null
-  const suggestion = drilling
-    ? null
-    : arrowFor(session.assistance, atLive, gameOver, playerTurn, matched?.best ?? null, human?.uci ?? null)
   const focusPly = atLive ? session.sans.length : (state.viewPly ?? 0)
-  const reviewed = drilling ? null : reviewOf(session.startFen, session.sans, session.marks, focusPly > 0 ? focusPly : null)
-  const arrows = suggestion ? [suggestion] : (reviewed?.arrows ?? [])
+  const reviewed = reviewOf(session.startFen, session.sans, session.marks, focusPly > 0 ? focusPly : null)
+  const boardKey = `${session.startFen}|${session.drillId ?? ""}`
+  const [arrowKey, setArrowKey] = useState(boardKey)
+  if (arrowKey !== boardKey) {
+    setArrowKey(boardKey)
+    setUserArrows([])
+    setHintFen(null)
+  }
+  const hintAsked = hintFen === liveFen
+  const threatUci = bestLine && bestLine.pv.length > 1 ? bestLine.pv[1] : null
+  const hintUci = session.assistance === "humano" && human?.uci ? human.uci : (matched?.best ?? null)
+  const arrows = visibleArrows({
+    mode: session.mode,
+    assistance: session.assistance,
+    drilling,
+    reviewing: state.reviewing,
+    atLive,
+    gameOver,
+    hintAsked,
+    settings: session.arrowSettings,
+    bestUci: hintUci,
+    threatUci,
+    reviewArrows: (reviewed?.arrows ?? []).map((arrow, index) => ({
+      ...arrow,
+      kind: "review" as const,
+      label: index === 0 && reviewed && reviewed.arrows.length > 1 ? "Melhor lance" : "Lance jogado",
+    })),
+    userArrows,
+  })
   const drill = drillById(session.drillId)
   const drillStatus = drill ? drillProgress(drill, session.sans) : null
 
@@ -209,9 +246,7 @@ export function LanceScreen() {
       ? reviewCopy(state.reviewLine)
       : null
   const pv =
-    session.assistance === "melhor" && matched?.best && bestLine
-      ? pvSans(liveFen, bestLine.pv).join(" ")
-      : null
+    hintAsked && matched?.best && bestLine ? pvSans(liveFen, bestLine.pv).join(" ") : null
   const engineSan = matched?.best ? sanOf(liveFen, matched.best) : null
 
   useEffect(() => {
@@ -227,6 +262,77 @@ export function LanceScreen() {
     resultSeen.current = { primed: true, last: current }
   }, [state.hydrated, atLive, result, session.sound, session.welcomed])
 
+  const drillHeard = useRef<string | null>(null)
+  useEffect(() => {
+    if (!drillStatus) return
+    const key = `${session.drillId}|${session.sans.length}|${drillStatus}`
+    const previous = drillHeard.current
+    drillHeard.current = key
+    if (!previous || previous === key || !session.sound) return
+    if (drillStatus === "solved") playSnd("celebration", true, "ui")
+    if (drillStatus === "missed") playSnd("caution", true, "ui")
+  }, [drillStatus, session.drillId, session.sans.length, session.sound])
+
+  useEffect(() => {
+    if (!state.reviewing || state.engineStatus !== "ready") return
+    const engine = engineRef.current
+    if (!engine) return
+    const client = engine
+    let cancelled = false
+    const startFen = session.startFen
+    const sans = session.sans
+    const evals = session.evals
+    const marks = session.marks
+    const total = sans.length + 1
+    async function run() {
+      for (let ply = 0; ply < total; ply += 1) {
+        if (cancelled) return
+        const covered = typeof evals[ply] === "number" && (ply >= sans.length || marks.some((mark) => mark.ply === ply + 1))
+        if (covered) {
+          dispatch({ type: "review-step", positionPly: ply, analysis: null })
+          continue
+        }
+        const fen = replay(startFen, sans.slice(0, ply)).fen()
+        const analysis = await client.review(fen)
+        if (cancelled || !analysis) return
+        dispatch({ type: "review-step", positionPly: ply, analysis })
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+    // The scan keeps the evals and marks from when it started. Listing them would restart and cancel every stored step.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.reviewing, state.engineStatus, session.startFen, session.sans])
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (!state.reviewing) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return
+      }
+      const length = session.sans.length
+      const current = state.viewPly ?? length
+      if (event.key === "ArrowRight") {
+        event.preventDefault()
+        dispatch({ type: "view-ply", ply: Math.min(length, current + 1) })
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault()
+        dispatch({ type: "view-ply", ply: Math.max(0, current - 1) })
+      } else if (event.key === "Home") {
+        event.preventDefault()
+        dispatch({ type: "view-ply", ply: 0 })
+      } else if (event.key === "End") {
+        event.preventDefault()
+        dispatch({ type: "view-ply", ply: length })
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [state.reviewing, state.viewPly, session.sans.length])
+
   function tryMove(from: string, to: string) {
     const hits = shown.moves({ square: from as never, verbose: true }).filter((move) => move.to === to)
     if (hits.length === 0) return
@@ -235,8 +341,10 @@ export function LanceScreen() {
       setSelected(null)
       return
     }
-    dispatch({ type: "user-move", san: hits[0].san })
-    playSnd("button", session.sound)
+    const move = hits[0]
+    dispatch({ type: "user-move", san: move.san })
+    const loud = move.san.includes("+") || move.san.includes("#")
+    playSnd(loud ? "caution" : move.captured ? "button" : move.san.startsWith("O-O") ? "select" : "tap", session.sound, "board")
     setSelected(null)
   }
 
@@ -248,6 +356,8 @@ export function LanceScreen() {
         tryMove(selected, square)
         return
       }
+      const piece = shown.get(square as never)
+      if (!piece || piece.color !== shown.turn()) playSnd("caution", session.sound, "board")
     }
     const piece = shown.get(square as never)
     if (piece && piece.color === shown.turn()) {
@@ -258,7 +368,7 @@ export function LanceScreen() {
   }
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-[900px] flex-col px-4 py-5 sm:py-8">
+    <main className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col px-4 py-5 sm:py-8">
       <header data-sea-block="" className="relative z-10 mb-4 flex flex-col gap-3 rounded-[6px] bg-background/90 px-2 py-1">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-[15px] font-medium tracking-tight">Lance</h1>
@@ -288,7 +398,8 @@ export function LanceScreen() {
         </p>
       </header>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div data-sea-block="" className="mx-auto w-full max-w-[520px] lg:sticky lg:top-6 lg:mx-0 lg:max-w-[560px] lg:flex-1">
+        <div data-sea-block="" className="mx-auto w-full min-w-0 lg:sticky lg:top-6 lg:mx-0 lg:flex-1">
+          <div className="mx-auto w-full max-w-[min(100%,calc(100dvh-7.5rem))]">
           <div className="grid grid-cols-[8px_minmax(0,1fr)] items-stretch gap-2">
             <EvalBar ratio={ratioOf(shownEval.cp, shownEval.mate)} label={evalLabel(shownEval.cp, shownEval.mate)} />
             <Board
@@ -299,8 +410,12 @@ export function LanceScreen() {
               destinations={legals}
               checkSquare={shown.isCheck() ? squareOfKing(shown, shown.turn()) : null}
               arrows={arrows}
-              tintSquare={suggestion ? null : (reviewed?.from ?? null)}
-              badge={suggestion ? null : (reviewed?.badge ?? null)}
+              tintSquare={state.reviewing ? (reviewed?.from ?? null) : null}
+              badge={state.reviewing && session.arrowSettings.review ? (reviewed?.badge ?? null) : null}
+              showLast={session.arrowSettings.lastMove}
+              highlights={session.highlights}
+              customColors={session.customColors}
+              annotate={session.arrowSettings.annotations}
               turn={turn}
               theme={session.boardTheme}
               pieceStyle={session.pieceStyle}
@@ -309,7 +424,15 @@ export function LanceScreen() {
                 if (canPlay) setSelected(square)
               }}
               onDrop={tryMove}
+              onAnnotate={(from, to) => {
+                setUserArrows((current) => {
+                  const exists = current.some((arrow) => arrow.from === from && arrow.to === to)
+                  if (exists) return current.filter((arrow) => arrow.from !== from || arrow.to !== to)
+                  return [...current, { from, to, color: "#e6912c", kind: "user", label: "Anotação" }]
+                })
+              }}
             />
+          </div>
           </div>
         </div>
         {!welcoming && (
@@ -366,7 +489,10 @@ export function LanceScreen() {
             if (tab !== session.tab) playSnd("select", session.sound)
             dispatch({ type: "set-tab", tab })
           }}
-          onUndo={() => dispatch({ type: "undo" })}
+          onUndo={() => {
+            playSnd("transitionDown", session.sound, "ui")
+            dispatch({ type: "undo" })
+          }}
           onNew={() => dispatch({ type: "new-game" })}
           onCopy={() => {
             const pgn = toPgn(session.startFen, session.sans)
@@ -398,6 +524,32 @@ export function LanceScreen() {
             playSnd("button", session.sound)
             dispatch({ type: "start-drill", id })
           }}
+          reviewing={state.reviewing}
+          reviewProgress={state.reviewProgress}
+          hintAsked={hintAsked}
+          onAskHint={() => {
+            playSnd("select", session.sound)
+            setHintFen((current) => (current === liveFen ? null : liveFen))
+          }}
+          onStartReview={() => {
+            playSnd("button", session.sound)
+            dispatch({ type: "start-review" })
+          }}
+          onStopReview={() => dispatch({ type: "stop-review" })}
+          onPractice={(ply) => {
+            playSnd("button", session.sound)
+            dispatch({ type: "practice", ply })
+          }}
+          practice={state.practice}
+          onArrows={(settings) => dispatch({ type: "set-arrows", settings })}
+          onColors={(colors) => dispatch({ type: "set-colors", colors })}
+          onHighlights={(highlights) => dispatch({ type: "set-highlights", highlights })}
+          onSoundPreset={(preset) => {
+            dispatch({ type: "set-sound-preset", preset })
+            playSnd("tap", true, "ui")
+          }}
+          onVolume={(board, ui) => dispatch({ type: "set-volume", board, ui })}
+          onAnalysisMs={(ms) => dispatch({ type: "set-analysis-ms", ms })}
         />
         )}
         {welcoming && (
@@ -428,7 +580,7 @@ export function LanceScreen() {
                     .find((item) => item.to === pending.to && item.promotion === piece.id)
                   if (move) {
                     dispatch({ type: "user-move", san: move.san })
-                    playSnd("button", session.sound)
+                    playSnd("transitionUp", session.sound, "board")
                   }
                   setPending(null)
                 }}
@@ -443,20 +595,6 @@ export function LanceScreen() {
       </Dialog>
     </main>
   )
-}
-
-function arrowFor(
-  assistance: string,
-  atLive: boolean,
-  gameOver: boolean,
-  playerTurn: boolean,
-  best: string | null,
-  humanUci: string | null,
-): { from: string; to: string; color: string } | null {
-  if (!atLive || gameOver || !playerTurn) return null
-  const uci = assistance === "melhor" ? best : assistance === "humano" ? humanUci : null
-  if (!uci || uci.length < 4) return null
-  return { from: uci.slice(0, 2), to: uci.slice(2, 4), color: assistance === "humano" ? "#2f6fad" : "#7fa650" }
 }
 
 function reviewOf(
@@ -474,7 +612,7 @@ function reviewOf(
   const grade = mark ? gradeOf(mark) : null
   const color = grade ? GRADE_COLOR[grade] : "#d9d3c7"
   const arrows: { from: string; to: string; color: string }[] = [{ from: move.from, to: move.to, color }]
-  const bad = grade === "imprecisao" || grade === "erro" || grade === "vacilo"
+  const bad = grade === "imprecisao" || grade === "erro" || grade === "vacilo" || grade === "omissao"
   if (bad && mark?.best && mark.best !== move.lan && mark.best.length >= 4) {
     arrows.unshift({ from: mark.best.slice(0, 2), to: mark.best.slice(2, 4), color: "#7fa650" })
   }

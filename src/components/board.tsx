@@ -3,9 +3,10 @@
 import { useRef, useState } from "react"
 
 import { PieceArt } from "@/components/pieces"
-import { arrowStroke, knightCorner } from "@/lib/arrow"
+import { arrowShape, knightCorner } from "@/lib/arrow"
+import type { BoardArrow } from "@/lib/arrows"
 import type { Placement } from "@/lib/game"
-import { BOARD_THEMES, type BoardTheme, type PieceStyle } from "@/lib/look"
+import { BOARD_THEMES, type BoardTheme, type CustomColors, type Highlights, type PieceStyle } from "@/lib/look"
 import { GRADE_COLOR, gradeGlyph, type Grade } from "@/lib/review"
 import type { Color } from "@/lib/session"
 
@@ -16,12 +17,6 @@ const PIECE_NAME: Record<string, string> = {
   r: "torre",
   q: "dama",
   k: "rei",
-}
-
-type Arrow = {
-  from: string
-  to: string
-  color: string
 }
 
 type Drag = {
@@ -44,12 +39,17 @@ export function Board({
   arrows,
   tintSquare,
   badge,
+  showLast,
+  highlights,
+  customColors,
+  annotate,
   turn,
   theme,
   pieceStyle,
   onSquare,
   onDragStart,
   onDrop,
+  onAnnotate,
 }: {
   pieces: Placement[]
   orientation: Color
@@ -57,18 +57,24 @@ export function Board({
   selected: string | null
   destinations: { to: string; capture: boolean }[]
   checkSquare: string | null
-  arrows: Arrow[]
+  arrows: BoardArrow[]
   tintSquare: string | null
   badge: { square: string; grade: Grade } | null
+  showLast: boolean
+  highlights: Highlights
+  customColors: CustomColors
+  annotate: boolean
   turn: Color | null
   theme: BoardTheme
   pieceStyle: PieceStyle
   onSquare: (square: string) => void
   onDragStart: (square: string) => void
   onDrop: (from: string, to: string) => void
+  onAnnotate: (from: string, to: string) => void
 }) {
   const boardRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<Drag | null>(null)
+  const arrowFrom = useRef<string | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
 
   function updateDrag(next: Drag | null) {
@@ -84,18 +90,35 @@ export function Board({
     }
   }
   const ordered = orientation === "w" ? squares : [...squares].reverse()
-  const colors = BOARD_THEMES[theme]
+  const palette = theme === "personalizado" ? customColors : BOARD_THEMES[theme]
 
   return (
     <div
       ref={boardRef}
       className="relative aspect-square w-full touch-none select-none"
       style={{ borderRadius: 6, boxShadow: "0 0 0 1px rgba(255,255,255,0.08)" }}
+      onContextMenu={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        if (!annotate) return
+        if (event.button !== 2 && !(event.button === 0 && event.shiftKey)) return
+        const rect = boardRef.current?.getBoundingClientRect()
+        if (!rect) return
+        arrowFrom.current = pointToSquare(event.clientX, event.clientY, rect, orientation)
+      }}
+      onPointerUp={(event) => {
+        const from = arrowFrom.current
+        arrowFrom.current = null
+        if (!from || !annotate) return
+        const rect = boardRef.current?.getBoundingClientRect()
+        if (!rect) return
+        const to = pointToSquare(event.clientX, event.clientY, rect, orientation)
+        if (to && to !== from) onAnnotate(from, to)
+      }}
     >
       <div className="grid h-full w-full grid-cols-8 grid-rows-8 overflow-hidden" style={{ borderRadius: 6 }}>
         {ordered.map((square) => {
           const light = isLight(square)
-          const tone = light ? colors.light : colors.dark
+          const tone = light ? palette.light : palette.dark
           const ink = inkOn(tone)
           const marked = lastMove?.from === square || lastMove?.to === square
           const dest = destinations.find((item) => item.to === square)
@@ -111,15 +134,17 @@ export function Board({
               className="relative"
               style={{ background: tone }}
             >
-              {marked && <span className="absolute inset-0" style={{ background: "rgba(72, 54, 24, 0.18)" }} />}
+              {showLast && marked && (
+                <span className="absolute inset-0" style={{ background: highlights.last, opacity: 0.38 }} />
+              )}
               {tintSquare === square && (
                 <span className="absolute inset-0" style={{ background: "rgba(214, 176, 122, 0.55)" }} />
               )}
               {selected === square && (
-                <span className="absolute inset-0" style={{ background: "rgba(255, 255, 255, 0.22)" }} />
+                <span className="absolute inset-0" style={{ background: highlights.selected, opacity: 0.34 }} />
               )}
               {checkSquare === square && (
-                <span className="absolute inset-0" style={{ boxShadow: "inset 0 0 0 2px rgba(163, 60, 50, 0.85)" }} />
+                <span className="absolute inset-0" style={{ boxShadow: `inset 0 0 0 2px ${highlights.check}` }} />
               )}
               {dest && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -129,7 +154,7 @@ export function Board({
                       style={{ boxShadow: `inset 0 0 0 3px ${ink}` }}
                     />
                   ) : (
-                    <span className="size-[22%] rounded-full" style={{ background: ink }} />
+                    <span className="size-[22%] rounded-full" style={{ background: highlights.legal, opacity: 0.55 }} />
                   )}
                 </span>
               )}
@@ -170,7 +195,7 @@ export function Board({
               cursor: movable ? "grab" : undefined,
             }}
             onPointerDown={(event) => {
-              if (!movable || event.button !== 0) return
+              if (!movable || event.button !== 0 || event.shiftKey) return
               event.preventDefault()
               event.currentTarget.setPointerCapture(event.pointerId)
               const rect = boardRef.current?.getBoundingClientRect()
@@ -231,25 +256,15 @@ export function Board({
   )
 }
 
-function ArrowShape({ arrow, orientation }: { arrow: Arrow; orientation: Color }) {
+function ArrowShape({ arrow, orientation }: { arrow: BoardArrow; orientation: Color }) {
   const from = center(arrow.from, orientation)
   const to = center(arrow.to, orientation)
   const bend = knightCorner(arrow.from, arrow.to)
   const corner = bend ? center(bend, orientation) : null
-  const stroke = arrowStroke(from, corner, to)
   return (
-    <g>
-      <path
-        d={stroke.d}
-        fill="none"
-        stroke={arrow.color}
-        strokeWidth="0.22"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.92"
-      />
-      <polygon points={stroke.head} fill={arrow.color} opacity="0.92" />
-    </g>
+    <path d={arrowShape(from, corner, to)} fill={arrow.color} className="lance-arrow">
+      <title>{arrow.label}</title>
+    </path>
   )
 }
 

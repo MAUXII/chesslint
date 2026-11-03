@@ -1,5 +1,9 @@
 export type Pt = { x: number; y: number }
 
+const BODY = 0.18
+const HEAD_LEN = 0.58
+const HEAD = 0.32
+
 export function isKnightLeap(from: string, to: string): boolean {
   const file = Math.abs(from.charCodeAt(0) - to.charCodeAt(0))
   const rank = Math.abs(Number(from[1]) - Number(to[1]))
@@ -17,51 +21,103 @@ export function knightCorner(from: string, to: string): string | null {
   return String.fromCharCode(fileFrom) + String(rankTo)
 }
 
-export function arrowStroke(from: Pt, corner: Pt | null, to: Pt): { d: string; head: string } {
-  const lastFrom = corner ?? from
-  const dx = to.x - lastFrom.x
-  const dy = to.y - lastFrom.y
+export function arrowShape(from: Pt, corner: Pt | null, to: Pt): string {
+  if (!corner) return straight(from, to)
+  return bent(from, corner, to)
+}
+
+function straight(from: Pt, to: Pt): string {
+  const u = unit(to.x - from.x, to.y - from.y)
+  const p = perp(u)
+  const start = add(from, u, 0.22)
+  const tip = add(to, u, -0.05)
+  const span = Math.hypot(tip.x - start.x, tip.y - start.y) || 1
+  const headLen = Math.min(HEAD_LEN, span * 0.46)
+  const base = add(tip, u, -headLen)
+  return closed([
+    shift(start, p, BODY),
+    shift(base, p, BODY),
+    shift(base, p, HEAD),
+    tip,
+    shift(base, p, -HEAD),
+    shift(base, p, -BODY),
+    shift(start, p, -BODY),
+  ])
+}
+
+function bent(from: Pt, corner: Pt, to: Pt): string {
+  const u1 = unit(corner.x - from.x, corner.y - from.y)
+  const u2 = unit(to.x - corner.x, to.y - corner.y)
+  const p1 = perp(u1)
+  const p2 = perp(u2)
+  const radius = 0.32
+  const start = add(from, u1, 0.18)
+  const before = add(corner, u1, -radius)
+  const after = add(corner, u2, radius)
+  const tip = add(to, u2, -0.05)
+  const leg = Math.hypot(tip.x - after.x, tip.y - after.y) || 1
+  const headLen = Math.min(HEAD_LEN, leg * 0.46)
+  const base = add(tip, u2, -headLen)
+  const controlWide = intersect(shift(before, p1, BODY), u1, shift(after, p2, BODY), u2)
+  const controlNarrow = intersect(shift(before, p1, -BODY), u1, shift(after, p2, -BODY), u2)
+  const wide = [
+    shift(start, p1, BODY),
+    shift(before, p1, BODY),
+    controlWide,
+    shift(after, p2, BODY),
+    shift(base, p2, BODY),
+  ]
+  const narrow = [
+    shift(base, p2, -BODY),
+    shift(after, p2, -BODY),
+    controlNarrow,
+    shift(before, p1, -BODY),
+    shift(start, p1, -BODY),
+  ]
+  const head = [shift(base, p2, HEAD), tip, shift(base, p2, -HEAD)]
+  return contour(wide, head, narrow)
+}
+
+function contour(wide: Pt[], head: Pt[], narrow: Pt[]): string {
+  const parts = [`M ${n(wide[0].x)} ${n(wide[0].y)}`]
+  parts.push(`L ${n(wide[1].x)} ${n(wide[1].y)}`)
+  parts.push(`Q ${n(wide[2].x)} ${n(wide[2].y)} ${n(wide[3].x)} ${n(wide[3].y)}`)
+  parts.push(`L ${n(wide[4].x)} ${n(wide[4].y)}`)
+  for (const point of head) parts.push(`L ${n(point.x)} ${n(point.y)}`)
+  parts.push(`L ${n(narrow[0].x)} ${n(narrow[0].y)}`)
+  parts.push(`L ${n(narrow[1].x)} ${n(narrow[1].y)}`)
+  parts.push(`Q ${n(narrow[2].x)} ${n(narrow[2].y)} ${n(narrow[3].x)} ${n(narrow[3].y)}`)
+  parts.push(`L ${n(narrow[4].x)} ${n(narrow[4].y)}`)
+  parts.push("Z")
+  return parts.join(" ")
+}
+
+function closed(points: Pt[]): string {
+  return `${points.map((point, index) => `${index === 0 ? "M" : "L"} ${n(point.x)} ${n(point.y)}`).join(" ")} Z`
+}
+
+function unit(dx: number, dy: number): Pt {
   const len = Math.hypot(dx, dy) || 1
-  const ux = dx / len
-  const uy = dy / len
-  const headLen = Math.min(0.46, len * 0.45)
-  const headHalf = headLen * 0.42
-  const tip = { x: to.x - ux * 0.06, y: to.y - uy * 0.06 }
-  const base = { x: tip.x - ux * headLen, y: tip.y - uy * headLen }
-  const px = -uy
-  const py = ux
-  const left = { x: base.x + px * headHalf, y: base.y + py * headHalf }
-  const right = { x: base.x - px * headHalf, y: base.y - py * headHalf }
-  const lineEnd = { x: base.x + ux * 0.08, y: base.y + uy * 0.08 }
+  return { x: dx / len, y: dy / len }
+}
 
-  let d: string
-  if (!corner) {
-    const span = Math.hypot(to.x - from.x, to.y - from.y) || 1
-    const sx = (to.x - from.x) / span
-    const sy = (to.y - from.y) / span
-    const start = { x: from.x + sx * 0.22, y: from.y + sy * 0.22 }
-    d = `M ${n(start.x)} ${n(start.y)} L ${n(lineEnd.x)} ${n(lineEnd.y)}`
-  } else {
-    const leg = Math.hypot(corner.x - from.x, corner.y - from.y) || 1
-    const sx = (corner.x - from.x) / leg
-    const sy = (corner.y - from.y) / leg
-    const start = { x: from.x + sx * 0.18, y: from.y + sy * 0.18 }
-    const radius = Math.min(0.36, leg * 0.4, len * 0.4)
-    const before = {
-      x: corner.x - sx * radius,
-      y: corner.y - sy * radius,
-    }
-    const after = {
-      x: corner.x + ux * radius,
-      y: corner.y + uy * radius,
-    }
-    d = `M ${n(start.x)} ${n(start.y)} L ${n(before.x)} ${n(before.y)} Q ${n(corner.x)} ${n(corner.y)} ${n(after.x)} ${n(after.y)} L ${n(lineEnd.x)} ${n(lineEnd.y)}`
-  }
+function perp(u: Pt): Pt {
+  return { x: -u.y, y: u.x }
+}
 
-  return {
-    d,
-    head: `${n(tip.x)},${n(tip.y)} ${n(left.x)},${n(left.y)} ${n(right.x)},${n(right.y)}`,
-  }
+function add(point: Pt, u: Pt, distance: number): Pt {
+  return { x: point.x + u.x * distance, y: point.y + u.y * distance }
+}
+
+function shift(point: Pt, p: Pt, distance: number): Pt {
+  return { x: point.x + p.x * distance, y: point.y + p.y * distance }
+}
+
+function intersect(origin: Pt, direction: Pt, other: Pt, otherDirection: Pt): Pt {
+  const det = direction.x * otherDirection.y - direction.y * otherDirection.x
+  if (Math.abs(det) < 1e-6) return { x: (origin.x + other.x) / 2, y: (origin.y + other.y) / 2 }
+  const t = ((other.x - origin.x) * otherDirection.y - (other.y - origin.y) * otherDirection.x) / det
+  return { x: origin.x + direction.x * t, y: origin.y + direction.y * t }
 }
 
 function n(value: number): string {

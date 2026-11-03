@@ -129,6 +129,17 @@
   }
 }
 
+.lance-arrow {
+  opacity: 0;
+  animation: lance-arrow-in 160ms ease forwards;
+}
+
+@keyframes lance-arrow-in {
+  to {
+    opacity: 0.86;
+  }
+}
+
 .lance-piece {
   transition:
     left 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -138,6 +149,10 @@
 @media (prefers-reduced-motion: reduce) {
   .lance-piece {
     transition: none;
+  }
+  .lance-arrow {
+    animation: none;
+    opacity: 0.86;
   }
 }
 
