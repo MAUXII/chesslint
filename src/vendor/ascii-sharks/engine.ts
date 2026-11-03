@@ -1,5 +1,5 @@
 // Vendored from https://github.com/stackedlol/ascii-sharks (MIT, Copyright (c) 2026 drewdi).
-// The pointer splash stays out: the board owns the click.
+// A click stamps a faint ring. The board still receives the same click.
 import { AsciiRenderer } from "./renderer";
 import { World, type SharkSpec } from "./world";
 
@@ -37,6 +37,7 @@ export class OceanEngine {
     this.intersectionObserver.observe(canvas);
 
     this.reducedMotion.addEventListener("change", this.onMotionPreference);
+    window.addEventListener("pointerdown", this.onPointerDown);
 
     this.resize();
     // Canvas text can't trigger a webfont load; once the mono face is in, redraw.
@@ -52,6 +53,7 @@ export class OceanEngine {
     this.resizeObserver.disconnect();
     this.intersectionObserver.disconnect();
     this.reducedMotion.removeEventListener("change", this.onMotionPreference);
+    window.removeEventListener("pointerdown", this.onPointerDown);
   }
 
   private resize() {
@@ -92,6 +94,15 @@ export class OceanEngine {
     }
     this.renderer.render(this.world, STEP);
   }
+
+  private onPointerDown = (event: PointerEvent) => {
+    if (this.disposed || this.reducedMotion.matches) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
+    this.world.splash(x, y);
+  };
 
   private onMotionPreference = () => {
     if (this.reducedMotion.matches) {

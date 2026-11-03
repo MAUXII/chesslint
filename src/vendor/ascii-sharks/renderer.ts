@@ -306,6 +306,7 @@ export class AsciiRenderer {
   private frameId = 0;
   /** Fish cells bucketed by brightness, so each bucket is one fillStyle. */
   private fishBuckets: number[][] = FISH_ALPHAS.map(() => []);
+  private ripples: { x: number; y: number; age: number }[] = [];
   private fishStyles = FISH_ALPHAS.map((_, index) => `rgba(255,255,255,${(0.06 + index * 0.03).toFixed(2)})`);
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -414,6 +415,7 @@ export class AsciiRenderer {
     this.drawHeat();
     this.drawFish();
     this.drawSharks();
+    this.drawRipples(dt);
   }
 
   // ── simulation → field ──────────────────────────────────────────────
@@ -445,7 +447,8 @@ export class AsciiRenderer {
         this.stamp(this.heat, e.x, e.y, 2, 1);
         this.stamp(this.energy, e.x, e.y, 3, 0.9);
       } else {
-        this.stamp(this.energy, e.x, e.y, 6, 1.4);
+        this.stamp(this.energy, e.x, e.y, 5, 0.7);
+        this.ripples.push({ x: e.x, y: e.y, age: 0 });
       }
     }
     world.events.length = 0;
@@ -738,6 +741,34 @@ export class AsciiRenderer {
         }
       }
     }
+  }
+
+  private drawRipples(dt: number) {
+    const { ctx, ripples } = this;
+    if (ripples.length === 0) return;
+    const keep: { x: number; y: number; age: number }[] = [];
+    ctx.fillStyle = "#fff";
+    for (const ripple of ripples) {
+      ripple.age += dt;
+      if (ripple.age > 1.35) continue;
+      keep.push(ripple);
+      const radius = 12 + ripple.age * 160;
+      const fade = 1 - ripple.age / 1.35;
+      for (const band of [0, 14]) {
+        ctx.globalAlpha = (band === 0 ? 0.28 : 0.14) * fade;
+        const ring = Math.max(4, radius - band);
+        for (let i = 0; i < 72; i++) {
+          if (BAYER[i & 15] > 8) continue;
+          const angle = (i / 72) * Math.PI * 2;
+          const j = ((i * 13) % 5) - 2;
+          const x = ripple.x + Math.cos(angle) * (ring + j);
+          const y = ripple.y + Math.sin(angle) * (ring * 0.42 + j);
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    this.ripples = keep;
   }
 
   private drawSharks() {
